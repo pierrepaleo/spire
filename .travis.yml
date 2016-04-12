@@ -1,0 +1,25 @@
+os:
+  - linux
+
+language: python
+python:
+  - "2.7"
+
+#branches:
+#  only:
+#    - travis
+
+
+
+install:
+  - "python setup.py bdist_wheel"
+  - "pip install --no-index --pre --find-links dist/ portal"
+#  - "python setup.py install --prefix=/home/travis/virtualenv/python2.7.9/lib/python2.7/site-packages/"
+
+
+# command to run tests
+script:
+  - "cd test/"
+  - "python -c 'import os; import portal; print(portal); p = portal.__path__; print(os.listdir(p[0]));'"
+  - "python test_basic.py"
+  - "python test_operators.py"
