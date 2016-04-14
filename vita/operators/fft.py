@@ -125,8 +125,8 @@ class Fft():
     def __get_types(self, inarray, outarray=None):
 
         types_in_out = {np.float32: np.complex64, np.float64: np.complex128, np.complex64: np.complex64, np.complex128: np.complex128}
-        types_in_out = {np.dtype(k): np.dtype(v) for k, v in types_in_out.iteritems()}
-        types_out_in = {v: k for k, v in types_in_out.iteritems()}
+        types_in_out = {np.dtype(k): np.dtype(v) for k, v in types_in_out.items()}
+        types_out_in = {v: k for k, v in types_in_out.items()}
 
         if inarray.dtype not in types_in_out.keys():
             raise ValueError("fft(): Unsupported input format %s" % str(inarray.dtype))

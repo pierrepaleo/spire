@@ -437,3 +437,111 @@ def munchetal_filter(im, wlevel, sigma, wname='db15'):
         return im_f[0:im.shape[0], 0:im.shape[1]]
 
 
+
+
+# ------------------------------------------------------------------------------
+# ------------------------- Consistency conditions -----------------------------
+# ------------------------------------------------------------------------------
+
+
+def sinogram_consistency(sino, order=0, nsamples=2, angles=None):
+    r"""
+    Check the Helgason-Ludwig consistency condition of a sinogram :
+
+    .. math::
+
+        H_n (\theta) = \int_{-\infty}^\infty s^n p(\theta, s) d\! s
+
+    is a homogeneous polynomial of degree :math:`n` in :math:`\sin \theta` and :math:`\cos \theta`.
+    Other formulation :
+
+    .. math::
+
+        H_{n, k} (\theta) = \int_0^\pi \int_{-\infty}^\infty s^n e^{j k \theta} p(\theta, s) d\! d d\! \theta = 0
+
+    for :math:`k > n \geq 0` and :math:`k - n` even.
+
+    References:
+    [1] G. Van Gompel; M. Defrise; D. Van Dyck,
+        "Elliptical extrapolation of truncated 2D CT projections using Helgason-Ludwig consistency conditions",
+        Proc. SPIE. 6142, Medical Imaging 2006: Physics of Medical Imaging (March 02, 2006)
+
+    Parameters
+    -----------
+    sino: numpy.ndarray
+        The sinogram
+    order:
+        Order of "n" in the Helgason-Ludwig integral.
+        For n == 0, the result is the STD of the total absorption along the angles
+            (which should be zero for ideal non-truncated sinogram)
+        For n == 1, values of (n, k) are { (0, 2), (0, 4), ...}
+        For n == 2, values of (n, k) are { (1, 3), (1, 5), ... }
+    nsamples:
+        Number of (n, k) tuples to take for the computation
+
+    Returns
+    --------
+    For order == 0, this function returns the standard deviation of the
+    sum of the sinogram along the bins, which should be as small as possible.
+    For order > 0, it returns a (nsamples, 2) matrix. Each line contains the components (cos, sin)
+    of the second integral defined above. The values are computed for n = order-1 and k = n+2, n+4, ...
+    Each value of the matrix should be as small as possible.
+    """
+
+
+    # Order 0 : total absorption is the same for all angle
+    if order == 0:
+        abstot = np.sum(sino, axis=1)
+        return np.std(abstot)
+
+    n = order - 1
+    K = n + 2*(np.arange(nsamples)+1)
+    sn = np.linspace(-1., 1., sino.shape[1], False) # CHECKME, in [1] they take [-2, 2]
+
+    if angles is None:
+        angles = np.linspace(0, np.pi, sino.shape[0], False)
+
+    res = np.zeros((nsamples, 2))
+    for i in range(nsamples): # TODO: can be faster
+        res[i, 0] = np.sum((np.cos(K[i]*angles) * sino.T).T * (sn**n))
+        res[i, 1] = np.sum((np.sin(K[i]*angles) * sino.T).T * (sn**n))
+    return res
+
+
+
+
+from vita.operators.image import norm1
+def normalize_sum(sino, tomo, rho0=1e2, rho1=1e3, nsteps=10, verbose=False):
+    """
+    Normalize a sinogram with its sum along the angles:
+        sino_norm = sino - Sigma/rho
+    where Sigma is the sum of the sinogram along the angles, and rho some parameter.
+    """
+
+    rhos = np.linspace(rho0, rho1, nsteps)
+    Sigma = sino.sum(axis=0)
+    tvs = []
+    for rho in rhos:
+        tvs.append(norm1(gradient(tomo.fbp(sino - Sigma/rho))))
+        if verbose: print("Rho = %e\t TV = %e" % (rho, tvs[-1]))
+    rho_opt = rhos[np.array(tvs).argmin()]
+    if verbose: print("Best rho: %e" % rho_opt)
+    return sino - Sigma/rho_opt
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

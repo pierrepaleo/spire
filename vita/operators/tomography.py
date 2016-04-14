@@ -43,7 +43,7 @@ class AstraToolbox:
     """
 
 
-    def __init__(self, slice_shape, angles, dwidth=None, rot_center=None, fullscan=False, super_sampling=None):
+    def __init__(self, slice_shape, angles, dwidth=None, rot_center=None, fullscan=False, halftomo=False, cudafbp=False, super_sampling=None):
         """
         Create a tomography parallel beam geometry.
 
@@ -62,8 +62,15 @@ class AstraToolbox:
             detector width (number of pixels). If not provided, max(n_x, n_y) is taken.
         rot_center: (optional) float
             user-defined rotation center. If not provided, dwidth/2 is taken.
-        fullscan: (optional) boolean
-            if True, use a 360 scan geometry. Default is False.
+        fullscan: (optional) boolean, default is False
+            if True, use a 360 scan geometry.
+        halftomo: (optional) boolean, default is False
+            if True, use a half-tomography setting. For the reconstruction, the sinogram is cut in half
+            along the rotation axis, and the top part is flipped and put on the right part of the resulting sinogram.
+            You just have to provide the original sinogram ; the geometry will be calculated automatically according to
+            the rotation center.
+        cudafbp: (optionnal) boolean, default is False
+            If True, use the built-in FBP of ASTRA instead of using Python to filter the projections.
         super_sampling: integer
             Detector and Pixel supersampling
         """
@@ -76,8 +83,18 @@ class AstraToolbox:
         if dwidth is None: dwidth = max(n_x, n_y)
         angle_max = np.pi
         if fullscan: angle_max *= 2
-        if isinstance(angles, int):
-            angles = np.linspace(0, angle_max, angles, False)
+
+
+        if halftomo:
+            # re-compute geometry
+            Rc = rot_center if rot_center else dwidth//2
+            n_x = n_y = dwidth = int(Rc*2) # !
+            # re-compute angles
+            angles = np.linspace(0, np.pi, angles//2, False) if isinstance(angles, int) else angles
+            rot_center = None # !
+        else:
+            if isinstance(angles, int):
+                angles = np.linspace(0, angle_max, angles, False)
         n_angles = angles.shape[0]
 
         self.vol_geom = astra.create_vol_geom(n_x, n_y)
@@ -106,7 +123,11 @@ class AstraToolbox:
         # volume shape
         self.vshape = astra.functions.geom_size(self.vg)
         # Configure backprojector
-        self.cfg_backproj = astra.creators.astra_dict('BP_CUDA')
+        if cudafbp:
+            self.cfg_backproj = astra.creators.astra_dict('FBP_CUDA')
+            self.cfg_backproj['FilterType'] = 'Ram-Lak'
+        else:
+            self.cfg_backproj = astra.creators.astra_dict('BP_CUDA')
         self.cfg_backproj['ProjectorId'] = self.proj_id
         if super_sampling:
             self.cfg_backproj['option'] = {'PixelSuperSampling':super_sampling}
@@ -117,6 +138,8 @@ class AstraToolbox:
         self.n_a = angles.shape[0]
         self.rot_center = rot_center if rot_center else dwidth//2
         self.angles = angles
+        self.halftomo = halftomo
+        self.cudafbp = cudafbp
 
 
     def __checkArray(self, arr):
@@ -128,13 +151,29 @@ class AstraToolbox:
 
 
     def backproj(self, s, filt=False, ext=False, method=1):
-        if filt is True:
-            if ext is True:
-                sino = self.filter_projections_ext(s, method)
+
+        if self.halftomo:
+            Np, Nx = s.shape
+            Rc = self.rot_center
+            sino = np.zeros((Np//2, Rc*2))
+            sino[:, :Rc] = np.copy(s[Np//2:, :Rc])
+            sino[:, Rc:] = np.copy(s[:Np//2, Rc-1::-1])
+            s = sino
+
+        if ext:
+            s = self.extend_projections(s, method)
+            from vita.utils import ims
+            ims(s)
+
+        if not(self.cudafbp):
+            if filt is True:
+                convmode = "linear" if not(ext) else "circular"
+                sino = self.filter_projections(s, convmode=convmode)
             else:
-                sino = self.filter_projections(s)
-        else:
-            sino = s
+                sino = s
+        elif filt == False: # TODO: create a new backprojector
+            print("Warning: in this tomo setting, cudafbp=True. This means that the data *will* be filtered !")
+
         sino = self.__checkArray(sino)
 
         # In
@@ -155,6 +194,9 @@ class AstraToolbox:
 
     def proj(self, v):
         v = self.__checkArray(v)
+        # TODO
+        if self.halftomo:
+            raise NotImplementedError("Forward projector is not implemented for half tomo")
         # In
         vid = astra.data2d.link('-vol', self.vg, v)
         self.cfg_proj['VolumeDataId'] = vid
@@ -171,35 +213,25 @@ class AstraToolbox:
 
 
 
-    def filter_projections(self, sino):
+    def filter_projections(self, sino, convmode="linear"):
         nb_angles, l_x = sino.shape
-        ramp = 1./l_x * np.hstack((np.arange(l_x), np.arange(l_x, 0, -1)))
-        return np.fft.ifft(ramp * np.fft.fft(sino, 2*l_x, axis=1), axis=1)[:, :l_x].real
+        if convmode == "linear":
+            ramp = 1./l_x * np.hstack((np.arange(l_x), np.arange(l_x, 0, -1)))
+            return np.fft.ifft(ramp * np.fft.fft(sino, 2*l_x, axis=1), axis=1)[:, :l_x].real
+        elif convmode == "circular": # for padded sinogram
+            N = l_x
+            n_px = self.n_x
+            ramp = 1./(N//2) * np.hstack((np.arange(N//2), np.arange(N//2, 0, -1)))
+            sino_extended_f = np.fft.fft(sino, N, axis=1)
+            return np.fft.ifft(ramp * sino_extended_f, axis=1)[:,:n_px].real
+        else:
+            raise ValueError("Unknown convolution mode")
 
 
 
-    def filter_projections_ext_old(self, sino):
-        # Extension with boundaries, can be turned into zero-extension.
-        n_angles, n_px = sino.shape
-        N = nextpow2(2*n_px)
-        isodd = 1 if (n_px & 1) else 0
-        sino_extended = np.zeros((n_angles, N))
-
-        sino_extended[:, :n_px] = sino
-        boundary_right = (sino[:, -1])[:,np.newaxis]
-        sino_extended[:, n_px:(n_px+N)//2] = np.tile(boundary_right, (1, (N-n_px)//2))
-        boundary_left = (sino[:, 0])[:,np.newaxis]
-        sino_extended[:, (n_px+N)//2:N] = np.tile(boundary_left, (1, (N-n_px)//2+isodd))
-
-        ramp = 1./(N/2) * np.hstack((np.arange(N/2), np.arange(N//2, 0, -1)))
-        sino_extended_f = np.fft.fft(sino_extended, N, axis=1)
-
-        return np.fft.ifft(ramp * sino_extended_f, axis=1)[:,:n_px].real
-
-
-    def filter_projections_ext(self, sino, method=1):
+    def extend_projections(self, sino, method=1):
         """
-        Filter the projections after extending the sinogram.
+        Extrapolate the sinogram of n/2 at each side
         This is often used in local tomography where the sinogram is "cropped",
         to avoid truncation artifacts.
 
@@ -210,7 +242,8 @@ class AstraToolbox:
             if 0, extend the sinogram with zeros
         """
         n_angles, n_px = sino.shape
-        N = nextpow2(2*n_px)
+        #~ N = nextpow2(2*n_px)
+        N = 2*n_px
         sino_extended = np.zeros((n_angles, N))
         sino_extended[:, :n_px] = sino
         boundary_right = (sino[:, -1])[:,np.newaxis]
@@ -222,11 +255,8 @@ class AstraToolbox:
 
         sino_extended[:, n_px:n_px+n_px//2] = np.tile(boundary_right, (1, n_px//2))
         sino_extended[:, -n_px//2:] = np.tile(boundary_left, (1, n_px//2))
+        return sino_extended
 
-        ramp = 1./(N//2) * np.hstack((np.arange(N//2), np.arange(N//2, 0, -1)))
-        sino_extended_f = np.fft.fft(sino_extended, N, axis=1)
-
-        return np.fft.ifft(ramp * sino_extended_f, axis=1)[:,:n_px].real
 
 
     def run_algorithm(self, alg, n_it, data):
@@ -243,15 +273,6 @@ class AstraToolbox:
         astra.data2d.delete(rec_id)
         astra.data2d.delete(sino_id)
         return rec
-
-
-    def lambda_tomo(self, sino, mu=0):
-        """
-        Performs a Lambda-tomography reconstruction, i.e a linear combination
-        of the plain BP and the Laplace-BP.
-        """
-
-        return self.backproj(convolve1d(sino, np.array([-1, 2, -1])), filt=False) + mu * self.backproj(sino, filt=False)
 
 
     def fbp(self, sino, padding=None):
