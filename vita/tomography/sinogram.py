@@ -35,6 +35,25 @@ from vita.algorithms.simplex import _minimize_neldermead
 from math import pi
 from vita.operators.fft import Fft
 
+
+
+
+def sino_halftomo(sino, rot_center=None):
+    """
+    From a sinogram acquired in half-tomography mode,
+    builds the "extended" sinogram corresponding of the doubled FOV.
+    """
+    Np, Nx = sino.shape
+    Rc = rot_center if rot_center else Nx//2
+    sino2 = np.zeros((Np//2, Rc*2))
+    sino2[:, :Rc] = np.copy(sino[Np//2:, :Rc])
+    sino2[:, Rc:] = np.copy(sino[:Np//2, Rc-1::-1])
+    return sino2
+
+
+
+
+
 # ------------------------------------------------------------------------------
 # ------------Cupping reduction : "sinogram straightening" ---------------------
 # ------------------------------------------------------------------------------

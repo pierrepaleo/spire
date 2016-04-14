@@ -43,7 +43,7 @@ class AstraToolbox:
     """
 
 
-    def __init__(self, slice_shape, angles, dwidth=None, rot_center=None, fullscan=False, halftomo=False, cudafbp=False, super_sampling=None):
+    def __init__(self, slice_shape, angles, dwidth=None, rot_center=None, fullscan=False, cudafbp=False, super_sampling=None):
         """
         Create a tomography parallel beam geometry.
 
@@ -84,16 +84,7 @@ class AstraToolbox:
         angle_max = np.pi
         if fullscan: angle_max *= 2
 
-
-        if halftomo:
-            # re-compute geometry
-            Rc = rot_center if rot_center else dwidth//2
-            n_x = n_y = dwidth = int(Rc*2) # !
-            # re-compute angles
-            angles = np.linspace(0, np.pi, angles//2, False) if isinstance(angles, int) else angles
-            rot_center = None # !
-        else:
-            if isinstance(angles, int):
+        if isinstance(angles, int):
                 angles = np.linspace(0, angle_max, angles, False)
         n_angles = angles.shape[0]
 
@@ -138,7 +129,6 @@ class AstraToolbox:
         self.n_a = angles.shape[0]
         self.rot_center = rot_center if rot_center else dwidth//2
         self.angles = angles
-        self.halftomo = halftomo
         self.cudafbp = cudafbp
 
 
@@ -152,30 +142,17 @@ class AstraToolbox:
 
     def backproj(self, s, filt=False, ext=False, method=1):
 
-        if self.halftomo:
-            Np, Nx = s.shape
-            Rc = self.rot_center
-            sino = np.zeros((Np//2, Rc*2))
-            sino[:, :Rc] = np.copy(s[Np//2:, :Rc])
-            sino[:, Rc:] = np.copy(s[:Np//2, Rc-1::-1])
-            s = sino
-
         if ext:
             s = self.extend_projections(s, method)
-            from vita.utils import ims
-            ims(s)
 
         if not(self.cudafbp):
             if filt is True:
                 convmode = "linear" if not(ext) else "circular"
-                sino = self.filter_projections(s, convmode=convmode)
-            else:
-                sino = s
+                s = self.filter_projections(s, convmode=convmode)
         elif filt == False: # TODO: create a new backprojector
             print("Warning: in this tomo setting, cudafbp=True. This means that the data *will* be filtered !")
 
-        sino = self.__checkArray(sino)
-
+        sino = self.__checkArray(s)
         # In
         sid = astra.data2d.link('-sino', self.pg, sino)
         self.cfg_backproj['ProjectionDataId'] = sid
@@ -194,9 +171,6 @@ class AstraToolbox:
 
     def proj(self, v):
         v = self.__checkArray(v)
-        # TODO
-        if self.halftomo:
-            raise NotImplementedError("Forward projector is not implemented for half tomo")
         # In
         vid = astra.data2d.link('-vol', self.vg, v)
         self.cfg_proj['VolumeDataId'] = vid
@@ -242,8 +216,10 @@ class AstraToolbox:
             if 0, extend the sinogram with zeros
         """
         n_angles, n_px = sino.shape
-        #~ N = nextpow2(2*n_px)
-        N = 2*n_px
+        # CHECKME: is the following appropriate ?
+        if (n_px <= 2048): N = nextpow2(2*n_px)
+        else: N = 2*n_px # memory !
+
         sino_extended = np.zeros((n_angles, N))
         sino_extended[:, :n_px] = sino
         boundary_right = (sino[:, -1])[:,np.newaxis]
