@@ -38,6 +38,7 @@ try:
     __has_pyfftw__ = True
 except ImportError:
     __has_pyfftw__ = False
+    print("Warning: pyfftw not found, using numpy.fft")
 
 
 
@@ -47,29 +48,42 @@ class Fft():
 
     Parameters
     ----------
-    inarray : numpy.ndarray
+    inarray: numpy.ndarray
         Input array from which the plan is created
-    outarray : numpy.ndarray
+    outarray: (optional) numpy.ndarray
         Output array
-    threads : int
-        If using FFTW, number of threads which should be used for the computation of FFT
+    threads: (optional) int
+        If using FFTW, number of threads which should be used for the computation of FFT.
+        Default is using the maximum number of CPU cores.
     axis : tuple of ints
+        For ND transform (N >= 2), the transform can be performed along this axis.
+    force_complex: (optional) bool
+        If True, a FFT is performed instead of RFFT for real inputs.
+        This means that the output is not truncated to N/2+1: the other (redundant)
+        part of the spectrum is kept.
+    plan_type: (optional) string
+        FFTW strategy for computing the plan. Available strategies are
+        'FFTW_ESTIMATE', 'FFTW_MEASURE', 'FFTW_PATIENT', 'FFTW_EXHAUSTIVE'.
+        This determines how much time is spent on computing the FFTW plan for
+        computing the FFT as fast as possible.
     """
 
-    def __init__(self, inarray, outarray=None, threads=None, axis=None, force_complex=False):
+    def __init__(self, inarray, outarray=None, threads=None, axis=None, force_complex=False, plan_type='FFTW_MEASURE', force_use_numpy=False):
         self.plan_f = None
         self.plan_i = None
         self.np_f = None # Forward transform when using numpy
         self.np_i = None # Inverse transform when using numpy
         self.r2c = True
         self.nthreads = -1
+        self.use_numpy = (force_use_numpy or not(__has_pyfftw__))
+        self.use_fftw = not(self.use_numpy)
         self.__get_types(inarray, outarray)
         if force_complex: self.r2c = False
 
         ndims = inarray.ndim
         if ndims > 3: ndims = 3 # for looking in the dictionary below
 
-        if __has_pyfftw__:
+        if __has_pyfftw__ and not(force_use_numpy):
             # Number of threads to be used
             ncpus = cpu_count()
             self.nthreads = ncpus # by default with FFTW, use the maximum number of threads. The GIL is released !
@@ -105,11 +119,14 @@ class Fft():
             #~ self.plan_i = plan_builder[1](self.outarray, planner_effort='FFTW_ESTIMATE', threads=self.nthreads)
 
             # ATTENTION : pyfftw does not perform ND fft by default (see axes default value)
-            nd_axes = tuple(np.arange(self.inarray.ndim)) # TODO : handle user-defined "axes" property
-            self.plan_f = pyfftw.FFTW(self.inarray, self.outarray, axes=nd_axes, direction='FFTW_FORWARD', flags=('FFTW_MEASURE', ), threads=self.nthreads)
-            self.plan_i = pyfftw.FFTW(self.outarray, self.inarray, axes=nd_axes, direction='FFTW_BACKWARD', flags=('FFTW_MEASURE', ), threads=self.nthreads)
+            if not(axis):
+                nd_axes = tuple(np.arange(self.inarray.ndim))
+            else:
+                nd_axes = (axis,) # TODO: 2D transform on 3D data ?
+            self.plan_f = pyfftw.FFTW(self.inarray, self.outarray, axes=nd_axes, direction='FFTW_FORWARD', flags=(plan_type, ), threads=self.nthreads)
+            self.plan_i = pyfftw.FFTW(self.outarray, self.inarray, axes=nd_axes, direction='FFTW_BACKWARD', flags=(plan_type, ), threads=self.nthreads)
 
-        else: # Only numpy is available
+        else: # Use numpy
             transforms = {
                 (1, True): (np.fft.rfft, np.fft.irfft),
                 (2, True): (np.fft.rfft2, np.fft.rfft2),
@@ -118,8 +135,12 @@ class Fft():
                 (2, False): (np.fft.fft2, np.fft.fft2),
                 (3, False): (np.fft.fftn, np.fft.fftn)
             }
-            self.np_f = transforms[(ndims, self.r2c)][0]
-            self.np_i = transforms[(ndims, self.r2c)][1]
+            ndims_comp = ndims
+            if axis:
+                nd_axes = (axis,) # TODO: 2D transform on 3D data ?
+                ndims_comp = len(nd_axes)
+            self.np_f = transforms[(ndims_comp, self.r2c)][0]
+            self.np_i = transforms[(ndims_comp, self.r2c)][1]
 
 
     def __get_types(self, inarray, outarray=None):
@@ -144,7 +165,7 @@ class Fft():
 
 
     def fft(self, arr):
-        if __has_pyfftw__:
+        if self.use_fftw:
             if arr.shape != self.inarray.shape:
                 raise ValueError("fft(): provided array has shape %s when plan was created for shape %s" % (str(arr.shape), str(self.inarray.shape)))
             if arr.dtype != self.itype:
@@ -162,7 +183,7 @@ class Fft():
 
 
     def ifft(self, arr):
-        if __has_pyfftw__:
+        if self.use_fftw:
             if arr.shape != self.outarray.shape:
                 raise ValueError("ifft(): provided array has shape %s when plan was created for shape %s" % (str(arr.shape), str(self.outarray.shape)))
             if arr.dtype != self.otype:
@@ -180,6 +201,38 @@ class Fft():
     @staticmethod
     def isreal(thetype):
         return thetype in [np.float32, np.float64]
+
+
+    def save_plan(self, plan_filename):
+        if not(self.use_fftw): raise RuntimeError("FFTW is not used")
+        T = pyfftw.export_wisdom()
+        try:
+            np.savez_compressed(plan_filename, plan=T)
+        except IOError:
+            print("Error: could not save plan %s for some reason (possibly permission denied)" % plan_filename)
+
+
+    def load_plan(self, plan_filename, verbose=True, return_all=False):
+        if not(self.use_fftw): raise RuntimeError("FFTW is not used")
+        try:
+            np.load(plan_filename)
+        except IOError:
+            print("Error: could not read file %s for some reason (possibly permission denied)" % plan_filename)
+            if return_all: return (False, False, False)
+            else: return
+        res = pyfftw.import_wisdom(np.load(plan_filename)["plan"])
+        if return_all: return res
+        elif verbose: # interpret the result
+            st = "" if res[0] else "was not"
+            print("Double precision plan %s imported" % st)
+            st = "" if res[1] else "was not"
+            print("Single precision plan %s imported" % st)
+            st = "" if res[2] else "was not"
+            print("Long double precision plan %s imported" % st)
+
+
+
+
 
 
 
