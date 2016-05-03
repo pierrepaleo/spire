@@ -34,6 +34,7 @@ from __future__ import division
 import numpy as np
 import random
 import string
+from math import pi
 
 try:
     import matplotlib.pyplot as plt

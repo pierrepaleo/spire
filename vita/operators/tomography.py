@@ -32,7 +32,7 @@
 
 from __future__ import division
 import numpy as np
-from math import sqrt
+from math import sqrt, pi
 import astra
 from vita.utils import ceilpow2 as nextpow2
 
@@ -64,11 +64,6 @@ class AstraToolbox:
             user-defined rotation center. If not provided, dwidth/2 is taken.
         fullscan: (optional) boolean, default is False
             if True, use a 360 scan geometry.
-        halftomo: (optional) boolean, default is False
-            if True, use a half-tomography setting. For the reconstruction, the sinogram is cut in half
-            along the rotation axis, and the top part is flipped and put on the right part of the resulting sinogram.
-            You just have to provide the original sinogram ; the geometry will be calculated automatically according to
-            the rotation center.
         cudafbp: (optionnal) boolean, default is False
             If True, use the built-in FBP of ASTRA instead of using Python to filter the projections.
         super_sampling: integer
@@ -130,6 +125,10 @@ class AstraToolbox:
         self.rot_center = rot_center if rot_center else dwidth//2
         self.angles = angles
         self.cudafbp = cudafbp
+        if not(cudafbp):
+            _ramp = self.compute_ramp_filter(dwidth*2)*2.0
+            self.rampfilter = np.abs(np.fft.fft(_ramp))
+        else: self.rampfilter = None
 
 
     def __checkArray(self, arr):
@@ -138,6 +137,29 @@ class AstraToolbox:
         if arr.flags['C_CONTIGUOUS']==False:
             arr = np.ascontiguousarray(arr)
         return arr
+
+
+    @staticmethod
+    def compute_ramp_filter(L):
+        """
+        Compute a discretized ramp filter for FBP.
+
+        The filters provided by ASTRA do not seem to take into account that
+        the ramp filter is band limited in practice. In particular,
+        the zero frequency (mean value) should not be set to zero ;
+        otherwise a bias appears in the reconstructed image.
+
+        See H. Murrel, "Computer-Aided Tomography" in "The Mathematica Journal", 1996, vol. 6, issue 2, pp 60-65
+        """
+        h = np.zeros(L)
+        L2 = L//2+1
+        h[0] = 1/4.
+        j = np.linspace(1, L2, L2//2, False)
+        # h[2::2] = 0
+        h[1:L2:2] = -1./(pi**2 * j**2)
+        #h[-1:L2-1:-2] = -1./(pi**2 * j**2)
+        h[L2:] = np.copy(h[1:L2-1][::-1])
+        return h
 
 
     def backproj(self, s, filt=False, ext=False, method=1):
@@ -190,7 +212,8 @@ class AstraToolbox:
     def filter_projections(self, sino, convmode="linear"):
         nb_angles, l_x = sino.shape
         if convmode == "linear":
-            ramp = 1./l_x * np.hstack((np.arange(l_x), np.arange(l_x, 0, -1)))
+            #~ ramp = 1./l_x * np.hstack((np.arange(l_x), np.arange(l_x, 0, -1))) # freq. zero is set to zero => bias in reconstructed slice
+            ramp = self.rampfilter
             return np.fft.ifft(ramp * np.fft.fft(sino, 2*l_x, axis=1), axis=1)[:, :l_x].real
         elif convmode == "circular": # for padded sinogram
             N = l_x

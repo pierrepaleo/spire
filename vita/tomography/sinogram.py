@@ -203,29 +203,6 @@ def get_center(sino, debug=False):
     return offs
 
 
-# ------------------------------------------------------------------------------
-# (------------ Sinogram consistency conditions --------------------------------
-# ------------------------------------------------------------------------------
-
-
-
-def consistency(sino, order=0):
-    """
-    Measure the "sinogram consistency" by checking the Helgason-Ludwig (HL) condition :
-
-    .. math::
-
-        \int_0^\pi \int_{-\infty}^\infty s^n e^{j k \theta} p(\theta, s) \diff s d \theta \; = \, 0
-
-    for k > n >= 0 and k - n even.
-
-    order: integer
-        Order of the HL condition
-    """
-    raise NotImplementedError("Not implemented yet")
-
-
-
 
 
 # ------------------------------------------------------------------------------
