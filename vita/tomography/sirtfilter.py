@@ -122,8 +122,7 @@ def _save(fname, data, n_x, n_y, n_det, nAng, niter, Lambda=0):
                             ndet=np.int32(n_det),
                             nproj=np.int32(nAng),
                             iterations=np.int32(niter),
-                            Lambda=np.float32(Lambda),
-                            version=__SF_VERSION__)
+                            Lambda=np.float32(Lambda))
     elif fmt == '.h5':
         f_desc = h5py.File(fname, 'w')
         d_desc = f_desc.create_dataset('sirtfilter', data=data)
@@ -133,7 +132,6 @@ def _save(fname, data, n_x, n_y, n_det, nAng, niter, Lambda=0):
         d_desc.attrs['nproj'] = np.int32(nAng)
         d_desc.attrs['iterations'] = np.int32(niter)
         d_desc.attrs['Lambda'] = np.float32(Lambda)
-        d_desc.attrs['version'] = np.float32(__SF_VERSION__)
         f_desc.close()
 
 
@@ -219,12 +217,12 @@ class SirtFilter:
             n_y += 1
 
         # Initialize ASTRA with this new geometry
-        AST2 = AstraToolbox(n_x, n_y, nAng, super_sampling=8) # rot center is not required in the computation of the filter
+        AST2 = AstraToolbox((n_x, n_y), nAng, super_sampling=8) # rot center is not required in the computation of the filter
         P = lambda x : AST2.proj(x) #*3.14159/2.0/nAng
         PT = lambda y : AST2.backproj(y, filt=False)
 
         # Compute the filter with this odd shape
-        xs = _compute_filter_operator(npix, P, PT, alph, niter, lambda_tikhonov)
+        xs = _compute_filter_operator(n_x, n_y, P, PT, alph, niter, lambda_tikhonov)
 
         # The filtering is done in the sinogram domain, using FFT
         # The filter has to be forward projected, then FT'd
