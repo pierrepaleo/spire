@@ -50,6 +50,7 @@ def explore_tomo_dataset(folder, file_prefix):
     fl.sort()
     if fl == []:
         print('Warning: explore_tomo_dataset(): could not find any EDF file in %s matching the file prefix %s' % (folder, file_prefix))
+        return {}
     n = len(fl)
 
     # Read first projection file, assuming the others follow the same format

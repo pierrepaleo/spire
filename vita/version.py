@@ -4,4 +4,4 @@
 Unique place where the version number is defined.
 """
 
-version = "0.2.3"
+version = "0.2.4"
