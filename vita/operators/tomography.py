@@ -170,7 +170,7 @@ class AstraToolbox:
         if not(self.cudafbp):
             if filt is True:
                 convmode = "linear" if not(ext) else "circular"
-                s = self.filter_projections(s, convmode=convmode)
+                s = self.filter_iprojections(s, convmode=convmode)
         elif filt == False: # TODO: create a new backprojector
             print("Warning: in this tomo setting, cudafbp=True. This means that the data *will* be filtered !")
 
@@ -274,7 +274,7 @@ class AstraToolbox:
         return rec
 
 
-    def fbp(self, sino, padding=None):
+    def fbp(self, sino, padding=False):
         """
         Runs the Filtered Back-Projection algorithm on the provided sinogram.
 
@@ -285,7 +285,7 @@ class AstraToolbox:
             If 0, the sinogram is extended with zeros.
             If 1, the sinogram is extended with its boundaries.
         """
-        if padding is None:
+        if bool(padding) is False:
             return self.backproj(sino, filt=True)
         else:
             return self.backproj(sino, filt=True, ext=True, method=padding)

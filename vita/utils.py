@@ -46,28 +46,14 @@ from math import ceil
 # For ImageJ :
 import subprocess
 import os
-try:
-    from PyMca.EdfFile import EdfFile
-    __has_edf__ = True
-except ImportError:
-    try:
-        from PyMca5.PyMca.EdfFile import EdfFile
-        __has_edf__ = True
-    except ImportError:
-        __has_edf__ = False
+from io import tiff_save
 
 
+# ------------------------------------------------------------------------------
+#                       Improved matplotlib image viewer
+# ------------------------------------------------------------------------------
 
-def generate_coords(img_shp, center=None):
-    l_r, l_c = float(img_shp[0]), float(img_shp[1])
-    R, C = np.mgrid[:l_r, :l_c] # np.indices is faster but returns integers !
-    if center is None:
-        center0, center1 = l_r / 2., l_c / 2.
-    else:
-        center0, center1 = center
-    R += 0.5 - center0
-    C += 0.5 - center1
-    return R, C
+
 
 
 def ims(img, cmap=None, legend=None, nocbar=False, share=True):
@@ -125,6 +111,20 @@ def ims(img, cmap=None, legend=None, nocbar=False, share=True):
 
 
 
+
+
+
+
+
+
+
+
+
+# ------------------------------------------------------------------------------
+#                   Utility to view numpy arrays with imagej
+# ------------------------------------------------------------------------------
+
+
 def _imagej_open(fname):
     # One file
     if isinstance(fname, str):
@@ -147,17 +147,19 @@ def call_imagej(obj):
     elif isinstance(obj, np.ndarray) or (isinstance(obj, list) and isinstance(obj[0], np.ndarray)):
         if isinstance(obj, np.ndarray):
             data = obj
-            fname = '/tmp/' + _randomword(10) + '.edf'
-            edfw = EdfFile(fname, access='w+') # overwrite ...
-            edfw.WriteImage({}, data)
+            if data.dtype == np.float64: data = data.astype(np.float32)
+            if data.dtype == np.int64: data = data.astype(np.int32)
+            fname = '/tmp/' + _randomword(10) + '.tif'
+            tiff_save(fname, data)
             return _imagej_open(fname)
         else:
             fname_list = []
             for i, data in enumerate(obj):
-                fname = '/tmp/' + _randomword(10) + str("_%d.edf" % i)
+                if data.dtype == np.float64: data = data.astype(np.float32)
+                if data.dtype == np.int64: data = data.astype(np.int32)
+                fname = '/tmp/' + _randomword(10) + str("_%d.tif" % i)
                 fname_list.append(fname)
-                edfw = EdfFile(fname, access='w+') # overwrite ...
-                edfw.WriteImage({}, data)
+                tiff_save(fname, data)
             return _imagej_open(fname_list)
 
     else:
@@ -169,32 +171,29 @@ def _randomword(length):
 
 
 
+# ------------------------------------------------------------------------------
+#                               Miscellaneous
+# ------------------------------------------------------------------------------
+
+
+
+def generate_coords(img_shp, center=None):
+    l_r, l_c = float(img_shp[0]), float(img_shp[1])
+    R, C = np.mgrid[:l_r, :l_c] # np.indices is faster but returns integers !
+    if center is None:
+        center0, center1 = l_r / 2., l_c / 2.
+    else:
+        center0, center1 = center
+    R += 0.5 - center0
+    C += 0.5 - center1
+    return R, C
+
+
 def ceilpow2(N):
     p = 1
     while p < N:
         p *= 2
     return p
-
-
-def fftbs(x):
-    '''
-    Bluestein chirp-Z transform.
-    Computes a FFT on a "good" length (power of two) to speed-up the FFT, without extending the spectrum.
-    '''
-    N = x.shape[0]
-    n = np.arange(N)
-    b = np.exp((1j*pi*n**2)/N)
-    a = x * b.conjugate()
-    M = ceilpow2(N) * 2
-    #~ A = np.concatenate((a, [0] * (M - N)))
-    B = np.concatenate((b, [0] * (M - 2*N + 1), b[:0:-1]))
-    C = np.fft.ifft(np.fft.fft(a, M) * np.fft.fft(B))
-
-    c = C[:N]
-    return b.conjugate() * c
-
-
-
 
 
 def phantom_mask(img, radius=None):
@@ -221,6 +220,24 @@ def gaussian1D(sigma):
     g = np.exp(-(t / sigma) ** 2 / 2.0).astype('f')
     g /= g.sum(dtype='f')
     return g
+
+
+def fftbs(x):
+    '''
+    Bluestein chirp-Z transform.
+    Computes a FFT on a "good" length (power of two) to speed-up the FFT, without extending the spectrum.
+    '''
+    N = x.shape[0]
+    n = np.arange(N)
+    b = np.exp((1j*pi*n**2)/N)
+    a = x * b.conjugate()
+    M = ceilpow2(N) * 2
+    #~ A = np.concatenate((a, [0] * (M - N)))
+    B = np.concatenate((b, [0] * (M - 2*N + 1), b[:0:-1]))
+    C = np.fft.ifft(np.fft.fft(a, M) * np.fft.fft(B))
+
+    c = C[:N]
+    return b.conjugate() * c
 
 
 

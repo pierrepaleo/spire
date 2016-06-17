@@ -60,12 +60,13 @@ if __name__ == '__main__':
 
     cmdclass = {}
 
-    packages = ['vita', 'vita.operators', 'vita.tomography', 'vita.algorithms', 'vita.samples']
+    packages = ['vita', 'vita.operators', 'vita.tomography', 'vita.algorithms', 'vita.samples', 'vita.third_party']
     package_dir = {"vita": "vita",
             'vita.tomography': 'vita/tomography',
             'vita.algorithms': 'vita/algorithms',
             'vita.operators':'vita/operators',
-            'vita.samples': 'vita/samples'}
+            'vita.samples': 'vita/samples',
+            'vita.third_party': 'vita/third_party'}
 
     setup(name = "vita",
         version = __version,

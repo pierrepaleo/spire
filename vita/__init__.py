@@ -32,7 +32,7 @@
 
 
 """
-Lazy import
+Lazy import of vita
 """
 
 from .version import version

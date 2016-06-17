@@ -54,12 +54,13 @@ def sino_halftomo(sino, rot_center=None):
 
 
 
-# ------------------------------------------------------------------------------
-# ------------Cupping reduction : "sinogram straightening" ---------------------
-# ------------------------------------------------------------------------------
-
-
 def straighten_sino(sino, order=3):
+    """
+    Straighten the sinogram by removing the baseline of each line.
+    This can be useful for removing the cupping in local tomography.
+    The baseline are fitted with a polynomia (default order is 3).
+
+    """
     n_angles, n_pix = sino.shape
     x = np.arange(n_pix)
     sino_corr = np.zeros_like(sino)
@@ -75,6 +76,161 @@ def straighten_sino(sino, order=3):
         f = np.poly1d(z)
         sino_corr[line, :] = y - f(x)
     return sino_corr
+
+
+
+
+def denoise_sg(sino, ftype=None, order=5):
+    """
+    Sinogram denoising with Savitzky-Golay filtering.
+
+    sino: numpy.ndarray
+        input sinogram
+    ftype: string
+        "cubic" or "quintic"
+    order: integer
+        number of points, can be 5, 7, 9 for cubic and 7, 9 for quintic
+    """
+    c5 = np.array([-3., 12, 17, 12, -3])/35.
+    c7 = np.array([-2., 3, 6, 7, 6, 3, -2])/21.
+    c9 = np.array([-21., 14, 39, 54, 59, 54, 39, 14, -21])/231.
+    q7 = np.array([5., -30, 75, 131, 75, -30, 5])/231.
+    q9 = np.array([15., -55, 30, 135, 179, 135, 30, -55, 15])/429.
+
+    if ftype is None: ftype = "cubic"
+    if ftype == "cubic":
+        if order == 5: c = c5
+        elif order == 7: c = c7
+        elif order == 9: c = c9
+        else: raise NotImplementedError()
+    elif ftype == "quintic":
+        if order == 7: c = q7
+        elif order == 9: c = q9
+        else: raise NotImplementedError()
+    else: raise ValueError("denoise_sg(): unknown filtering type %s" % ftype)
+
+    res = np.zeros_like(sino)
+    # TODO : improve with a "axis=1 convolution"
+    for i in range(sino.shape[0]):
+        res[i] = np.convolve(sino[i], c, mode="same")
+    return res
+
+    # For general case :
+    #~ x = np.arange(npts//2, npts//2, npts)
+    #~ XT = np.vstack((x**0, x**1, x**2, x**3)) # and so on, for degree
+    #~ sol = np.linalg.inv(XT.dot(XT.T)).dot(XT)
+    #~ c0 = sol[0, :] # smoothing
+    #~ c1 = sol[1, :] # first derivative
+
+
+
+
+
+
+
+def extend_sem(sino0, extlen=None, nvals=4):
+    """
+    Sinogram extension method using Simple Extrapolation Method (SEM) described in [1].
+
+    Parameters
+    -----------
+    sino0: numpy.ndarray
+        The sinogram to extend
+    extlen: integer
+        length of the extension zone. Default is N/2 where N is the horizontal dimension of the sinogram.
+    nvals: integer
+        number of left/right values to take when computing the extrapolation. Default is 4.
+
+    References
+    -----------
+    [1] Gert Van Gompel,
+    Towards accurate image reconstruction from truncated X-ray CT projections,
+    PhD thesis, University of Antwerp, 2009
+    http://visielab.uantwerpen.be/sites/default/files/thesis_vangompel.pdf
+    """
+
+
+    N = sino0.shape[1]
+    L = N/2 # N instead of N/2 can yield results
+
+    sino = np.zeros((sino0.shape[0], N+2*L))
+    sino[:, L:L+N] = np.copy(sino0)
+    sino_zero = np.copy(sino)
+
+    s1 = N + 2*L -1 # upper bound (included !) for "s" indexes
+    s = np.arange(s1+1, dtype="float") # s in [0, s1]
+    u = s/s1
+    su = np.sqrt(1 - u**2)
+    for i in range(sino.shape[0]):
+        line = np.copy(sino[i, :])
+        # Right part :
+        sino_vals = line[L+N-nvals:L+N]
+        M = np.hstack((su[L+N-nvals:L+N, None], (su*u)[L+N-nvals:L+N, None]))
+        sol = np.linalg.pinv(M).dot(sino_vals)
+        sino[i, L+N:] = (su*(sol[0] + sol[1]*u))[L+N:]
+        # Left part :
+        # invert "u" and "su" !
+        sino_vals = line[L:L+nvals]
+        M = np.hstack((u[L:L+nvals, None], (u*su)[L:L+nvals, None]))
+        sol = np.linalg.pinv(M).dot(sino_vals)
+        sino[i, :L] = (u*(sol[0] + sol[1]*su))[:L]
+    return sino
+
+
+
+def extend_quadexp(sino0, m=2, alpha=0.65, zeroclip=False):
+    """
+    Extend a sinogram with a mixture of quadratic and exponential function, as described in [1].
+
+    Parameters
+    -----------
+    sino0: numpy.ndarray
+        The sinogram to extend
+    m: integer
+        The exponent of the exponential argument. Default is 2.
+    alpha: float
+        Normalization factor of the exponential argument. Default is 0.65
+    zeroclip: bool
+        if True, the negative values of the extended sinogram are clipped to zero. Default is False.
+
+
+    References
+    -----------
+    [1] Shuangren Zhao, Kang Yang, Xintie Yang,
+        Reconstruction from truncated projections using mixed extrapolations of exponential and quadratic functions.
+        J Xray Sci Technol. 2011 ; 19 (2):155-72
+        http://imrecons.com/wp-content/uploads/2013/02/extrapolation.pdf
+    """
+
+    N = sino0.shape[1]
+    L = N/2 # N instead of N/2 can yield better results
+    sino = np.zeros((sino0.shape[0], N+2*L))
+    sino[:, L:L+N] = np.copy(sino0)
+
+    j = N +L
+    k = -1 +L
+    Rp = sino[:, j-1]
+    Sp = sino[:, j-1] - sino[:, j-2]
+    Rm = sino[:, k+1]
+    Sm = sino[:, k+1] - sino[:, k+2]
+    cp = Rp
+    bp = Sp
+    ap = - (bp*(L+1)+cp)/((L+1.)**2)
+    cm = Rm
+    bm = Sm
+    am = - (bm*(L+1)+cm)/((L+1.)**2)
+
+    Il = np.arange(0, L)[::-1]
+    Ir = np.arange(N+L, N+2*L)
+    k -= L
+    for u in range(sino.shape[0]):
+        sino[u, N+L:N+2*L] = (ap[u]*(Ir-(j-1))**2 + bp[u]*(Ir-(j-1)) + cp[u]) * np.exp(-((Ir-j)/(alpha*L))**m)
+        sino[u, 0:L] = (am[u]*(Il-(k+1))**2 + bm[u]*(Il-(k+1)) + cm[u]) * np.exp(-((Il-k)/(alpha*L))**m)
+
+    if zeroclip: sino[sino<0] = 0
+    return sino
+
+
 
 
 
@@ -204,52 +360,6 @@ def get_center(sino, debug=False):
 
 
 
-
-# ------------------------------------------------------------------------------
-# --------------------------------- Denoising ----------------------------------
-# ------------------------------------------------------------------------------
-
-def denoise_sg(sino, ftype=None, order=5):
-    """
-    Sinogram denoising with Savitzky-Golay filtering.
-
-    sino: numpy.ndarray
-        input sinogram
-    ftype: string
-        "cubic" or "quintic"
-    order: integer
-        number of points, can be 5, 7, 9 for cubic and 7, 9 for quintic
-    """
-    c5 = np.array([-3., 12, 17, 12, -3])/35.
-    c7 = np.array([-2., 3, 6, 7, 6, 3, -2])/21.
-    c9 = np.array([-21., 14, 39, 54, 59, 54, 39, 14, -21])/231.
-    q7 = np.array([5., -30, 75, 131, 75, -30, 5])/231.
-    q9 = np.array([15., -55, 30, 135, 179, 135, 30, -55, 15])/429.
-
-    if ftype is None: ftype = "cubic"
-    if ftype == "cubic":
-        if order == 5: c = c5
-        elif order == 7: c = c7
-        elif order == 9: c = c9
-        else: raise NotImplementedError()
-    elif ftype == "quintic":
-        if order == 7: c = q7
-        elif order == 9: c = q9
-        else: raise NotImplementedError()
-    else: raise ValueError("denoise_sg(): unknown filtering type %s" % ftype)
-
-    res = np.zeros_like(sino)
-    # TODO : improve with a "axis=1 convolution"
-    for i in range(sino.shape[0]):
-        res[i] = np.convolve(sino[i], c, mode="same")
-    return res
-
-    # For general case :
-    #~ x = np.arange(npts//2, npts//2, npts)
-    #~ XT = np.vstack((x**0, x**1, x**2, x**3)) # and so on, for degree
-    #~ sol = np.linalg.inv(XT.dot(XT.T)).dot(XT)
-    #~ c0 = sol[0, :] # smoothing
-    #~ c1 = sol[1, :] # first derivative
 
 
 
@@ -389,50 +499,6 @@ def _ringb(sino, m, n, step):
 
 
 
-# ------------------------------------------------------------------------------
-#           Rings artifacts correction : Münch Et Al. algorithm
-# Copyright (c) 2013, Elettra - Sincrotrone Trieste S.C.p.A.
-# All rights reserved.
-# ------------------------------------------------------------------------------
-try:
-    import pywt
-    __has_pywt__ = True
-except ImportError:
-    __has_pywt__ = False
-    print("Warning: pywt package not found, cannot use Fourier-Wavelet destriping")
-
-
-def munchetal_filter(im, wlevel, sigma, wname='db15'):
-    # Wavelet decomposition:
-    coeffs = pywt.wavedec2(im.astype(np.float32), wname, level=wlevel)
-    coeffsFlt = [coeffs[0]]
-    # FFT transform of horizontal frequency bands:
-    for i in range(1, wlevel + 1):
-        # FFT:
-        fcV = np.fft.fftshift(np.fft.fft(coeffs[i][1], axis=0))
-        my, mx = fcV.shape
-        # Damping of vertical stripes:
-        damp = 1 - np.exp(-(np.arange(-np.floor(my / 2.), -np.floor(my / 2.) + my) ** 2) / (2 * (sigma ** 2)))
-        dampprime = np.kron(np.ones((1, mx)), damp.reshape((damp.shape[0], 1)))
-        fcV = fcV * dampprime
-        # Inverse FFT:
-        fcVflt = np.real(np.fft.ifft(np.fft.ifftshift(fcV), axis=0))
-        cVHDtup = (coeffs[i][0], fcVflt, coeffs[i][2])
-        coeffsFlt.append(cVHDtup)
-
-    # Get wavelet reconstruction:
-    im_f = np.real(pywt.waverec2(coeffsFlt, wname))
-    # Return image according to input type:
-    if (im.dtype == 'uint16'):
-        # Check extrema for uint16 images:
-        im_f[im_f < np.iinfo(np.uint16).min] = np.iinfo(np.uint16).min
-        im_f[im_f > np.iinfo(np.uint16).max] = np.iinfo(np.uint16).max
-        # Return filtered image (an additional row and/or column might be present):
-        return im_f[0:im.shape[0], 0:im.shape[1]].astype(np.uint16)
-    else:
-        return im_f[0:im.shape[0], 0:im.shape[1]]
-
-
 
 
 # ------------------------------------------------------------------------------
@@ -531,6 +597,48 @@ def normalize_sum(sino, tomo, rho0=1e2, rho1=1e3, nsteps=10, verbose=False):
 
 
 
+# ------------------------------------------------------------------------------
+#           Rings artifacts correction : Münch Et Al. algorithm
+# Copyright (c) 2013, Elettra - Sincrotrone Trieste S.C.p.A.
+# All rights reserved.
+# ------------------------------------------------------------------------------
+try:
+    import pywt
+    __has_pywt__ = True
+except ImportError:
+    __has_pywt__ = False
+    print("Warning: pywt package not found, cannot use Fourier-Wavelet destriping")
+
+
+def munchetal_filter(im, wlevel, sigma, wname='db15'):
+    # Wavelet decomposition:
+    coeffs = pywt.wavedec2(im.astype(np.float32), wname, level=wlevel)
+    coeffsFlt = [coeffs[0]]
+    # FFT transform of horizontal frequency bands:
+    for i in range(1, wlevel + 1):
+        # FFT:
+        fcV = np.fft.fftshift(np.fft.fft(coeffs[i][1], axis=0))
+        my, mx = fcV.shape
+        # Damping of vertical stripes:
+        damp = 1 - np.exp(-(np.arange(-np.floor(my / 2.), -np.floor(my / 2.) + my) ** 2) / (2 * (sigma ** 2)))
+        dampprime = np.kron(np.ones((1, mx)), damp.reshape((damp.shape[0], 1)))
+        fcV = fcV * dampprime
+        # Inverse FFT:
+        fcVflt = np.real(np.fft.ifft(np.fft.ifftshift(fcV), axis=0))
+        cVHDtup = (coeffs[i][0], fcVflt, coeffs[i][2])
+        coeffsFlt.append(cVHDtup)
+
+    # Get wavelet reconstruction:
+    im_f = np.real(pywt.waverec2(coeffsFlt, wname))
+    # Return image according to input type:
+    if (im.dtype == 'uint16'):
+        # Check extrema for uint16 images:
+        im_f[im_f < np.iinfo(np.uint16).min] = np.iinfo(np.uint16).min
+        im_f[im_f > np.iinfo(np.uint16).max] = np.iinfo(np.uint16).max
+        # Return filtered image (an additional row and/or column might be present):
+        return im_f[0:im.shape[0], 0:im.shape[1]].astype(np.uint16)
+    else:
+        return im_f[0:im.shape[0], 0:im.shape[1]]
 
 
 

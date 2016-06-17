@@ -36,12 +36,13 @@ I/O is not the primary purpose of this package, so it would be better using anot
 external module for proper read/write !
 """
 
-
-
 from __future__ import division
 import numpy as np
 
-
+# EDF
+from .third_party import EdfFile
+# tiff
+from .third_party import tifffile
 
 # HDF5
 try:
@@ -55,51 +56,27 @@ try:
     __has_scipyio__ = True
 except ImportError:
     __has_scipyio__ = False
-# EDF
-try:
-    from PyMca.EdfFile import EdfFile
-    __has_pymca__ = True
-except ImportError:
-    try:
-        from PyMca5.PyMca.EdfFile import EdfFile
-        __has_pymca__ = True
-    except ImportError:
-        __has_pymca__ = False
-try:
-    import fabio
-except ImportError:
-    __has_fabio__ = False
-
-
 
 
 
 def edf_read(fname, numframe=0):
-        '''
-        Read a EDF file and store it into a numpy array
-        '''
-        if __has_pymca__:
-            fid = EdfFile(fname)
-            return fid.GetData(numframe)
-        elif __has_fabio__:
-            fid = fabio.open(fname)
-            return fid.data # CHECKME
-        else:
-            raise ImportError("Please install PyMca or FabIO to read EDF files")
+    '''
+    Read a EDF file and store it into a numpy array
+    '''
+    fid = EdfFile.EdfFile(fname)
+    data = fid.GetData(numframe)
+    fid.File.close()
+    return data
 
 
 def edf_write(data, fname, info=None):
-        '''
-        Save a numpy array into a EDF file
-        '''
-        if info is None: info = {}
-        if __has_pymca__:
-            edfw = EdfFile(fname, access='w+') # Overwrite !
-            edfw.WriteImage(info, data)
-        elif __has_fabio__:
-            raise NotImplementedError("write with Fabio not implemented here, please do it manually")
-        else:
-            raise ImportError("Please install PyMca or FabIO to write EDF files")
+    '''
+    Save a numpy array into a EDF file
+    '''
+    if info is None: info = {}
+    edfw = EdfFile.EdfFile(fname, access='w+') # Overwrite !
+    edfw.WriteImage(info, data)
+    edfw.File.close()
 
 
 
@@ -120,6 +97,23 @@ def loadmat(fname, framenum=0):
     except NotImplementedError: # Matlab >= 7.3 files
         res = h5_read(fname, framenum)
     return res
+
+
+def tiff_read(fname, *args, **kwargs):
+    return tifffile.imread(fname, *args, **kwargs)
+
+
+def tiff_save(fname, data, **kwargs):
+    return tifffile.imsave(fname, data, **kwargs)
+
+
+def tiff_write(fname, data, **kwargs):
+    return tifffile.imsave(fname, data, **kwargs)
+
+
+
+
+
 
 
 

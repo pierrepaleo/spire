@@ -69,7 +69,7 @@ def chambolle_pock_tv(data, K, Kadj, Lambda, L=None,  n_it=100, return_all=True)
     if return_all: en = np.zeros(n_it)
     for k in range(0, n_it):
         # Update dual variables
-        # For anisotropic TV, the prox is a projection onto the L2 unit ball.
+        # For isotropic TV, the prox is a projection onto the L2 unit ball.
         # For anisotropic TV, this is a projection onto the L-infinity unit ball.
         p = proj_linf(p + sigma*gradient(x_tilde), Lambda)
         q = (q + sigma*K(x_tilde) - sigma*data)/(1.0 + sigma)
@@ -87,6 +87,7 @@ def chambolle_pock_tv(data, K, Kadj, Lambda, L=None,  n_it=100, return_all=True)
                 print("[%d] : energy %e \t fidelity %e \t TV %e" %(k,energy,fidelity,tv))
     if return_all: return en, x
     else: return x
+
 
 
 def chambolle_pock_l1_tv(data, K, Kadj, Lambda, L=None,  n_it=100, return_all=True):
@@ -138,6 +139,91 @@ def chambolle_pock_l1_tv(data, K, Kadj, Lambda, L=None,  n_it=100, return_all=Tr
                 print("[%d] : energy %e \t fidelity %e \t TV %e" %(k,energy,fidelity,tv))
     if return_all: return en, x
     else: return x
+
+
+
+
+
+
+def chambolle_pock_kl_tv(data, K, Kadj, Lambda, L=None,  n_it=100, return_all=True):
+    '''
+    Chambolle-Pock algorithm for KL-TV.
+    The following objective function is minimized :
+        KL(K*x , d) + Lambda*TV(x)
+    Where KL(x, y) is a modified Kullback-Leibler divergence.
+    This method might be more effective than L2-TV for Poisson noise.
+
+    K : forward operator
+    Kadj : backward operator
+    Lambda : weight of the TV penalization (the higher Lambda, the more sparse is the solution)
+    L : norm of the operator [P, Lambda*grad] (see power_method)
+    n_it : number of iterations
+    return_all: if True, an array containing the values of the objective function will be returned
+    '''
+
+    if L is None:
+        print("Warn: chambolle_pock(): Lipschitz constant not provided, computing it with 20 iterations")
+        L = power_method(K, Kadj, data, 20)
+        L = sqrt(8. + L**2) * 1.2
+        print("L = %e" % L)
+    sigma = 1.0/L
+    tau = 1.0/L
+
+    x = 0*Kadj(data)
+    p = 0*gradient(x)
+    q = 0*data
+    x_tilde = 0*x
+    theta = 1.0
+
+    #
+    O = np.ones_like(q)
+    #
+
+    if return_all: en = np.zeros(n_it)
+    for k in range(0, n_it):
+        # Update dual variables
+        tmp = q + sigma*K(x_tilde)
+        q = 0.5*(O + tmp - np.sqrt((tmp - O)**2 + 4*sigma*data))
+        tmp = p + sigma*gradient(x_tilde)
+        p = Lambda*(tmp)/np.maximum(Lambda, np.abs(tmp))
+
+        # Update primal variables
+        x_old = x
+        x = x + tau*div(p) - tau*Kadj(q)
+        x_tilde = x + theta*(x - x_old)
+        # Calculate norms
+        if return_all:
+            fidelity = 0.5*norm2sq(K(x)-data)
+            tv = norm1(gradient(x))
+            energy = 1.0*fidelity + Lambda*tv
+            en[k] = energy
+            if (k%10 == 0): # TODO: more flexible
+                print("[%d] : energy %e \t fidelity %e \t TV %e" %(k,energy,fidelity,tv))
+    if return_all: return en, x
+    else: return x
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

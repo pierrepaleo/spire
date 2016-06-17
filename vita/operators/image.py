@@ -33,6 +33,7 @@
 from __future__ import division
 import numpy as np
 from math import sqrt
+from scipy.ndimage import convolve
 
 
 def gradient(img):
@@ -285,5 +286,41 @@ def ianscombe(y):
     """
     Inverse of the Anscombe transform
     """
-    return (y**2)/4. + sqrt(3/2.)/4./y - 11./8/(y**2) + 5/8.*sqrt(3./2)/(y**3) -1/8.
+    return (y**2)/4. + sqrt(3/2.)/4./y - 11./8./(y**2) + 5/8.*sqrt(3./2)/(y**3) -1/8.
+
+
+
+
+
+
+# ------------------------------------------------------------------------------
+# ---------------------------- Misc --------------------------------------------
+# ------------------------------------------------------------------------------
+
+
+
+def estimate_noise_std(img):
+    """
+    Given a noisy image, estimate the variance of the noise,
+    assuming that the noise is additive and Gaussian.
+
+    Reference
+    ----------
+    Fast Noise Variance Estimation
+    COMPUTER VISION AND IMAGE UNDERSTANDING
+    Vol. 64, No. 2, September, pp. 300–302, 1996
+    ARTICLE NO 0060
+    """
+    H, W = img.shape
+    kern = np.array([[1, -2, 1.],[-2,4,-2],[1,-2,1]])
+    i2 = np.abs(convolve(img, kern))
+    return sqrt(pi/2)*np.sum(i2)/(6*(W-2)*(H-2))
+
+
+
+
+
+
+
+
 

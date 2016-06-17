@@ -49,7 +49,7 @@ def power_method(K, Kadj, data, n_it=10):
     x = np.copy(Kadj(data)) # Copy in case of Kadj = Id
     for k in range(0, n_it):
         x = Kadj(K(x))
-        s = sqrt(norm2sq(x))
+        s = sqrt(norm2sq(x*1.0))
         x /= s
     return sqrt(s)
 
