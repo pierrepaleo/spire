@@ -14,7 +14,7 @@
 #   this list of conditions and the following disclaimer in the documentation
 #   and/or other materials provided with the distribution.
 #
-# * Neither the name of VITA nor the names of its
+# * Neither the name of SPIRE nor the names of its
 #   contributors may be used to endorse or promote products derived from
 #   this software without specific prior written permission.
 #
@@ -40,13 +40,13 @@ import os
 
 def get_version():
 
-    with open("vita/version.py") as fid:
+    with open("spire/version.py") as fid:
         lines = fid.readlines()
     # Get the line containing "version ="
     idx = -1
     for i, l in enumerate(lines):
         if ("version" in l) and ("=" in l): idx = i
-    if idx == -1: raise RuntimeError("Unable to get version from vita/version.py")
+    if idx == -1: raise RuntimeError("Unable to get version from spire/version.py")
 
     # Extract the version number
     ver = lines[idx].rstrip('\n').split("=")[-1].strip(' ').strip('"')
@@ -60,15 +60,15 @@ if __name__ == '__main__':
 
     cmdclass = {}
 
-    packages = ['vita', 'vita.operators', 'vita.tomography', 'vita.algorithms', 'vita.samples', 'vita.third_party']
-    package_dir = {"vita": "vita",
-            'vita.tomography': 'vita/tomography',
-            'vita.algorithms': 'vita/algorithms',
-            'vita.operators':'vita/operators',
-            'vita.samples': 'vita/samples',
-            'vita.third_party': 'vita/third_party'}
+    packages = ['spire', 'spire.operators', 'spire.tomography', 'spire.algorithms', 'spire.samples', 'spire.third_party']
+    package_dir = {"spire": "spire",
+            'spire.tomography': 'spire/tomography',
+            'spire.algorithms': 'spire/algorithms',
+            'spire.operators':'spire/operators',
+            'spire.samples': 'spire/samples',
+            'spire.third_party': 'spire/third_party'}
 
-    setup(name = "vita",
+    setup(name = "spire",
         version = __version,
         platforms = ["linux_x86", "linux_x86_64"],
         description = "Various Image processing and Tomography Algorithms",
@@ -76,7 +76,7 @@ if __name__ == '__main__':
         author_email = "pierre.paleo@esrf.fr",
         maintainer = "Pierre Paleo",
         maintainer_email = "pierre.paleo@esrf.fr",
-        url = "https://github.com/pierrepaleo/vita",
+        url = "https://github.com/pierrepaleo/spire",
         license="BSD",
         #~ packages=find_packages(),
         #~ packages=find_packages(exclude=("test", ),
@@ -84,7 +84,7 @@ if __name__ == '__main__':
         packages=packages,
         package_dir = package_dir,
         package_data={'': ['samples/lena.npz']},
-        #~ data_files=[("vita-data", ["vita/samples/lena.npz"])], # not copied in site-packages !
+        #~ data_files=[("spire-data", ["spire/samples/lena.npz"])], # not copied in site-packages !
 
         long_description = """
         This module contains various utilities for image processing algorithms based on

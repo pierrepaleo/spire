@@ -14,7 +14,7 @@
 #   this list of conditions and the following disclaimer in the documentation
 #   and/or other materials provided with the distribution.
 #
-# * Neither the name of VITA nor the names of its
+# * Neither the name of SPIRE nor the names of its
 #   contributors may be used to endorse or promote products derived from
 #   this software without specific prior written permission.
 #
@@ -40,35 +40,35 @@ class TestBasic(unittest.TestCase):
 
     def test_import(self):
         try:
-            import vita
+            import spire
             success = 1
         except ImportError:
             success = 0
-        self.assertTrue(success == 1, msg="Failed to import vita for some reason")
+        self.assertTrue(success == 1, msg="Failed to import spire for some reason")
 
     def test_all_imports(self):
         try:
-            from vita.operators.tomography import AstraToolbox
-            import vita.operators.image
-            import vita.operators.misc
-            from vita.operators.fft import Fft
-            from vita.operators.wavelets import WaveletCoeffs
-            from vita.operators.convolution import ConvolutionOperator
-            import vita.algorithms.chambollepock
-            import vita.algorithms.fista
-            import vita.algorithms.conjgrad
-            import vita.tomography.sinogram
-            import vita.tomography.sirtfilter
-            import vita.io
-            import vita.utils
+            from spire.operators.tomography import AstraToolbox
+            import spire.operators.image
+            import spire.operators.misc
+            from spire.operators.fft import Fft
+            from spire.operators.wavelets import WaveletCoeffs
+            from spire.operators.convolution import ConvolutionOperator
+            import spire.algorithms.chambollepock
+            import spire.algorithms.fista
+            import spire.algorithms.conjgrad
+            import spire.tomography.sinogram
+            import spire.tomography.sirtfilter
+            import spire.io
+            import spire.utils
             success = 1
         except ImportError:
             success = 0
         self.assertTrue(success == 1, msg="Could not import all modules")
 
     def test_version(self):
-        import vita
-        print("Version = %s" % vita.version)
+        import spire
+        print("Version = %s" % spire.version)
 
     def tearDown(self):
         pass

@@ -1,10 +1,10 @@
-[![Build Status](https://travis-ci.org/pierrepaleo/vita.svg?branch=master)](https://travis-ci.org/pierrepaleo/vita/)
-[![Documentation](https://readthedocs.org/projects/vita/badge/?version=latest)](http://vita.readthedocs.org/en/latest/)
+[![Build Status](https://travis-ci.org/pierrepaleo/spire.svg?branch=master)](https://travis-ci.org/pierrepaleo/spire/)
+[![Documentation](https://readthedocs.org/projects/spire/badge/?version=latest)](http://spire.readthedocs.org/en/latest/)
 
 ## Presentation
 
 
-**VITA** (Various Image processing and Tomography Algorithms) is a python package providing
+**SPIRE** (Simple Prototyping of Image REconstruction methods) is a python package providing
 wrappers and utilities for tomography and image processing algorithms.
 
 It is divided in several parts:
@@ -28,7 +28,7 @@ pip install --user wheel.whl
 
 where ``wheel.whl`` is the wheel of the current version.
 
-If you are *updating* VITA, you have to force the re-installation :
+If you are *updating* SPIRE, you have to force the re-installation :
 
 ```bash
 pip install --user --force-reinstall wheel.whl
@@ -41,7 +41,7 @@ pip install --user --force-reinstall wheel.whl
 You can build and install this package from the sources.
 
 ```bash
-git clone git://github.com/pierrepaleo/vita
+git clone git://github.com/pierrepaleo/spire
 ```
 * You can directly install from the sources with
 
@@ -59,9 +59,9 @@ pip install --user dist/wheel.whl
 
 ### Dependencies
 
-To use VITA, you must have Python > 2.7 and numpy >= 1.8. These should come with standard Linux distributions.
+To use SPIRE, you must have Python > 2.7 and numpy >= 1.8. These should come with standard Linux distributions.
 
-Numpy is the only component absolutely required for PORTAL. For special applications, the following are required :
+Numpy is the only component absolutely required for SPIRE. For special applications, the following are required :
 
    * The [ASTRA toolbox](https://github.com/astra-toolbox/astra-toolbox/) for tomography applications
 

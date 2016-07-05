@@ -2,7 +2,8 @@
 # -*- coding: utf-8 -*-
 #
 # Copyright (C) 2016, European Synchrotron Radiation Facility
-# Main author: Pierre Paleo <pierre.paleo@esrf.fr>
+# Copyright (c) 2015, UChicago Argonne, LLC. All rights reserved.
+# Copyright (c) 2013, Elettra - Sincrotrone Trieste S.C.p.A.
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions are met:
@@ -14,7 +15,7 @@
 #   this list of conditions and the following disclaimer in the documentation
 #   and/or other materials provided with the distribution.
 #
-# * Neither the name of VITA nor the names of its
+# * Neither the name of SPIRE nor the names of its
 #   contributors may be used to endorse or promote products derived from
 #   this software without specific prior written permission.
 #
@@ -30,10 +31,10 @@
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #
 import numpy as np
-from vita.utils import generate_coords
-from vita.algorithms.simplex import _minimize_neldermead
+from spire.utils import generate_coords
+from spire.algorithms.simplex import _minimize_neldermead
 from math import pi
-from vita.operators.fft import Fft
+from spire.operators.fft import Fft
 
 
 
@@ -572,7 +573,7 @@ def sinogram_consistency(sino, order=0, nsamples=2, angles=None):
 
 
 
-from vita.operators.image import norm1
+from spire.operators.image import norm1, gradient
 def normalize_sum(sino, tomo, rho0=1e2, rho1=1e3, nsteps=10, verbose=False):
     """
     Normalize a sinogram with its sum along the angles:

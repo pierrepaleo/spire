@@ -14,7 +14,7 @@
 #   this list of conditions and the following disclaimer in the documentation
 #   and/or other materials provided with the distribution.
 #
-# * Neither the name of VITA nor the names of its
+# * Neither the name of SPIRE nor the names of its
 #   contributors may be used to endorse or promote products derived from
 #   this software without specific prior written permission.
 #
@@ -32,7 +32,7 @@
 
 from __future__ import division
 import numpy as np
-from vita.operators.image import grad_tv_smoothed, tv_smoothed, norm2sq, dot
+from spire.operators.image import grad_tv_smoothed, tv_smoothed, norm2sq, dot
 
 def conjugate_gradient_tv(K, Kadj, data, Lambda, n_it, mu=1e-4, return_all=True):
     '''

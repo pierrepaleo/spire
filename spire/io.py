@@ -14,7 +14,7 @@
 #   this list of conditions and the following disclaimer in the documentation
 #   and/or other materials provided with the distribution.
 #
-# * Neither the name of VITA nor the names of its
+# * Neither the name of SPIRE nor the names of its
 #   contributors may be used to endorse or promote products derived from
 #   this software without specific prior written permission.
 #
@@ -30,40 +30,90 @@
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #
 
+"""
+Tools for (very) basic I/O.
+I/O is not the primary purpose of this package, so it would be better using another
+external module for proper read/write !
+"""
+
 from __future__ import division
 import numpy as np
-from math import sqrt
-from vita.operators.image import norm2sq, dot
+
+# EDF
+from .third_party import EdfFile
+# tiff
+from .third_party import tifffile
+
+# HDF5
+try:
+    import h5py
+    __has_hdf5__ = True
+except ImportError:
+    __has_hdf5__ = False
+# mat (old versions)
+try:
+    import scipy.io
+    __has_scipyio__ = True
+except ImportError:
+    __has_scipyio__ = False
 
 
-def power_method(K, Kadj, data, n_it=10):
+
+def edf_read(fname, numframe=0):
     '''
-    Calculates the norm of operator K
-    i.e the sqrt of the largest eigenvalue of K^T*K
-        ||K|| = sqrt(lambda_max(K^T*K))
-
-    K : forward operator
-    Kadj : backward operator (adjoint of K)
-    data : initial data
+    Read a EDF file and store it into a numpy array
     '''
-    x = np.copy(Kadj(data)) # Copy in case of Kadj = Id
-    for k in range(0, n_it):
-        x = Kadj(K(x))
-        s = sqrt(norm2sq(x*1.0))
-        x /= s
-    return sqrt(s)
+    fid = EdfFile.EdfFile(fname)
+    data = fid.GetData(numframe)
+    fid.File.close()
+    return data
 
 
-
-def check_adjoint(K, Kadj, K_input_shape, Kadj_input_shape):
+def edf_write(data, fname, info=None):
     '''
-    Checks if the operators K and Kadj are actually adjoint of eachother, i.e if
-        < K(x), y > = < x, Kadj(y) >
+    Save a numpy array into a EDF file
     '''
+    if info is None: info = {}
+    edfw = EdfFile.EdfFile(fname, access='w+') # Overwrite !
+    edfw.WriteImage(info, data)
+    edfw.File.close()
 
-    x = np.random.rand(*K_input_shape)
-    y = np.random.rand(*Kadj_input_shape)
-    err = abs(dot(K(x), y) - dot(x, Kadj(y)))
-    return err
+
+
+def h5_read(fname, numframe=0):
+    fid = h5py.File(fname)
+    res = fid[fid.keys()[numframe]].value
+    fid.close()
+    return res
+
+
+def h5_write(arr, fname):
+    raise NotImplementedError('H5 write is not implemented yet, please do it manually with h5py')
+
+
+def loadmat(fname, framenum=0):
+    try:
+        res = scipy.io.loadmat(fname)
+    except NotImplementedError: # Matlab >= 7.3 files
+        res = h5_read(fname, framenum)
+    return res
+
+
+def tiff_read(fname, *args, **kwargs):
+    return tifffile.imread(fname, *args, **kwargs)
+
+
+def tiff_save(fname, data, **kwargs):
+    return tifffile.imsave(fname, data, **kwargs)
+
+
+def tiff_write(fname, data, **kwargs):
+    return tifffile.imsave(fname, data, **kwargs)
+
+
+
+
+
+
 
 

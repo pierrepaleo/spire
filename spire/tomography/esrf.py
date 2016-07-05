@@ -14,7 +14,7 @@
 #   this list of conditions and the following disclaimer in the documentation
 #   and/or other materials provided with the distribution.
 #
-# * Neither the name of VITA nor the names of its
+# * Neither the name of SPIRE nor the names of its
 #   contributors may be used to endorse or promote products derived from
 #   this software without specific prior written permission.
 #
@@ -34,7 +34,7 @@ from __future__ import division
 import numpy as np
 import os
 import glob
-from vita.io import edf_read, edf_write
+from spire.io import edf_read, edf_write
 
 
 

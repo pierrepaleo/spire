@@ -14,7 +14,7 @@
 #   this list of conditions and the following disclaimer in the documentation
 #   and/or other materials provided with the distribution.
 #
-# * Neither the name of VITA nor the names of its
+# * Neither the name of SPIRE nor the names of its
 #   contributors may be used to endorse or promote products derived from
 #   this software without specific prior written permission.
 #
@@ -32,9 +32,9 @@
 
 import numpy as np
 import unittest
-import vita.operators as operators
-import vita.operators.misc
-import vita.operators.image
+import spire.operators as operators
+import spire.operators.misc
+import spire.operators.image
 
 class TestOperators(unittest.TestCase):
 

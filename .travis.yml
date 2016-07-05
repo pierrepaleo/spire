@@ -13,13 +13,13 @@ python:
 
 install:
   - "python setup.py bdist_wheel"
-  - "pip install --no-index --pre --find-links dist/ vita"
+  - "pip install --no-index --pre --find-links dist/ spire"
 #  - "python setup.py install --prefix=/home/travis/virtualenv/python2.7.9/lib/python2.7/site-packages/"
 
 
 # command to run tests
 script:
   - "cd test/"
-  - "python -c 'import os; import vita; print(vita); p = vita.__path__; print(os.listdir(p[0]));'"
+  - "python -c 'import os; import spire; print(spire); p = spire.__path__; print(os.listdir(p[0]));'"
   - "python test_basic.py"
   - "python test_operators.py"

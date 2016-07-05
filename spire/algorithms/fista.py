@@ -14,7 +14,7 @@
 #   this list of conditions and the following disclaimer in the documentation
 #   and/or other materials provided with the distribution.
 #
-# * Neither the name of VITA nor the names of its
+# * Neither the name of SPIRE nor the names of its
 #   contributors may be used to endorse or promote products derived from
 #   this software without specific prior written permission.
 #
@@ -32,8 +32,8 @@
 
 from __future__ import division
 import numpy as np
-from vita.operators.misc import power_method
-from vita.operators.image import norm2sq, norm1
+from spire.operators.misc import power_method
+from spire.operators.image import norm2sq, norm1
 
 def fista_l1_operator(data, K, Kadj, Lambda, H, Hinv, soft_thresh, Lip=None, n_it=100, return_all=True):
     '''
@@ -188,7 +188,7 @@ def fista_wavelets(data, W, K, Kadj, Lambda, Lip=None, n_it=100, return_all=True
         x_old = x
         W.set_image((y - (1.0/Lip)*grad_y).astype(np.float32))
         W.forward()
-        W.soft_threshold(Lambda/Lip, normalize=normalize)
+        W.soft_threshold(Lambda/Lip, 0, normalize=normalize)
         W.inverse()
         x = W.image
         y = x + ((k-1.0)/(k+10.1))*(x - x_old) # TODO : see what would be the best parameter "a"

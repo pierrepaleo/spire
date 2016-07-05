@@ -14,7 +14,7 @@
 #   this list of conditions and the following disclaimer in the documentation
 #   and/or other materials provided with the distribution.
 #
-# * Neither the name of VITA nor the names of its
+# * Neither the name of SPIRE nor the names of its
 #   contributors may be used to endorse or promote products derived from
 #   this software without specific prior written permission.
 #
@@ -32,7 +32,7 @@
 
 from __future__ import division
 import numpy as np
-from math import sqrt
+from math import sqrt, pi
 from scipy.ndimage import convolve
 
 
@@ -64,32 +64,6 @@ def div(grad):
         this_res[1:-1] -= this_grad[:-2]
         this_res[-1] -= this_grad[-2]
     return res
-
-
-def gradient1d(x):
-    """
-    Gradient of 1D array
-    """
-    t1 = np.empty_like(x)
-    t2 = np.empty_like(x)
-    t1[:-1] = x[1:]
-    t1[-1] = 0
-    t2[:-1] = x[:-1]
-    t2[-1] = 0
-    return t1-t2
-
-
-def div1d(x):
-    """
-    Divergence of 1D gradient
-    """
-    t1 = np.empty_like(x)
-    t2 = np.empty_like(x)
-    t1[:-1] = -x[:-1]
-    t1[-1] = 0
-    t2[0] = 0
-    t2[1:] = x[:-1]
-    return t1 + t2
 
 
 def gradient_axis(x, axis=-1):
@@ -182,7 +156,7 @@ def grad_tv_smoothed(x, mu):
 
 
 
-def proj_l2(g, Lambda=1.0): # TODO: write a prox for gradient-like arrays, and another for 2D arrays
+def proj_l2(g, Lambda=1.0):
     '''
     Proximal operator of the L2,1 norm :
         L2,1(u) = sum_i ||u_i||_2   (i.e isotropic TV)
@@ -298,7 +272,7 @@ def ianscombe(y):
 # ------------------------------------------------------------------------------
 
 
-
+from scipy.ndimage import convolve
 def estimate_noise_std(img):
     """
     Given a noisy image, estimate the variance of the noise,

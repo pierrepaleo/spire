@@ -14,7 +14,7 @@
 #   this list of conditions and the following disclaimer in the documentation
 #   and/or other materials provided with the distribution.
 #
-# * Neither the name of VITA nor the names of its
+# * Neither the name of SPIRE nor the names of its
 #   contributors may be used to endorse or promote products derived from
 #   this software without specific prior written permission.
 #
@@ -30,7 +30,21 @@
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #
 
+from __future__ import division
+import numpy as np
+import os.path
 
-"""
-Lazy import
-"""
+def load_lena():
+    """
+    Loads Lena from a npz file, to avoid a dependency on scipy.misc
+    """
+    try:
+        import scipy.misc
+        l = scipy.misc.lena()
+    except:
+        fname = os.path.join(os.path.dirname(os.path.realpath(__file__)), "lena.npz")
+        f = np.load(fname)
+        l = f['data']
+        f.close()
+    return l.astype(np.float32)
+

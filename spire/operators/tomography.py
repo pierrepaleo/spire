@@ -14,7 +14,7 @@
 #   this list of conditions and the following disclaimer in the documentation
 #   and/or other materials provided with the distribution.
 #
-# * Neither the name of VITA nor the names of its
+# * Neither the name of SPIRE nor the names of its
 #   contributors may be used to endorse or promote products derived from
 #   this software without specific prior written permission.
 #
@@ -34,7 +34,7 @@ from __future__ import division
 import numpy as np
 from math import sqrt, pi
 import astra
-from vita.utils import ceilpow2 as nextpow2
+from spire.utils import ceilpow2 as nextpow2
 
 
 class AstraToolbox:
@@ -170,7 +170,7 @@ class AstraToolbox:
         if not(self.cudafbp):
             if filt is True:
                 convmode = "linear" if not(ext) else "circular"
-                s = self.filter_iprojections(s, convmode=convmode)
+                s = self.filter_projections(s, convmode=convmode)
         elif filt == False: # TODO: create a new backprojector
             print("Warning: in this tomo setting, cudafbp=True. This means that the data *will* be filtered !")
 
@@ -217,10 +217,11 @@ class AstraToolbox:
             return np.fft.ifft(ramp * np.fft.fft(sino, 2*l_x, axis=1), axis=1)[:, :l_x].real
         elif convmode == "circular": # for padded sinogram
             N = l_x
-            n_px = self.n_x
+            #n_px = self.n_x
+            dwidth = self.dwidth
             ramp = 1./(N//2) * np.hstack((np.arange(N//2), np.arange(N//2, 0, -1)))
             sino_extended_f = np.fft.fft(sino, N, axis=1)
-            return np.fft.ifft(ramp * sino_extended_f, axis=1)[:,:n_px].real
+            return np.fft.ifft(ramp * sino_extended_f, axis=1)[:, :dwidth].real
         else:
             raise ValueError("Unknown convolution mode")
 

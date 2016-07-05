@@ -14,7 +14,7 @@
 #   this list of conditions and the following disclaimer in the documentation
 #   and/or other materials provided with the distribution.
 #
-# * Neither the name of VITA nor the names of its
+# * Neither the name of SPIRE nor the names of its
 #   contributors may be used to endorse or promote products derived from
 #   this software without specific prior written permission.
 #
@@ -32,7 +32,7 @@
 
 import numpy as np
 import unittest
-from vita.operators.fft import Fft
+from spire.operators.fft import Fft
 
 
 class TestFft(unittest.TestCase):

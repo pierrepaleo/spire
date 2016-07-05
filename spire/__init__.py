@@ -30,30 +30,10 @@
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #
 
-import unittest
-import sys
-from test_basic import test_suite_basic
-from test_operators import test_suite_all_operators
-from test_fft import test_suite_all_fft
-#~ from test_samples import *
 
+"""
+Lazy import
+"""
 
-def test_suite_all():
-    testSuite = unittest.TestSuite()
-    testSuite.addTest(test_suite_basic())
-    testSuite.addTest(test_suite_all_operators())
-    testSuite.addTest(test_suite_all_fft())
-    #~ testSuite.addTest(test_all_samples())
-    return testSuite
+from .version import version
 
-
-def run():
-    mysuite = test_suite_all()
-    runner = unittest.TextTestRunner()
-    if not runner.run(mysuite).wasSuccessful():
-        sys.exit(1)
-
-
-if __name__ == '__main__':
-
-    run()
