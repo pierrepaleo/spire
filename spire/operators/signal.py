@@ -64,8 +64,7 @@ def div1d(x):
 
 def generate_sine(npts=None, freq=None, nper=None, fs=None, tmax=1.0, offset=0, return_time=False):
     """
-    Generate a sine wave:
-        sin(2*pi*freq*t)
+    Generate a sine wave: sin(2 pi freq t).
     This can be done with a variety of combinations of the following parameters.
 
     Parameters

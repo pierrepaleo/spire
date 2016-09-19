@@ -31,7 +31,6 @@
 #
 from __future__ import division
 import numpy as np
-from .. import _utils
 
 
 # ------------------------------------------------------------------------------
@@ -173,41 +172,36 @@ def _ringb(sino, m, n, step):
 # Copyright (c) 2013, Elettra - Sincrotrone Trieste S.C.p.A.
 # All rights reserved.
 # ------------------------------------------------------------------------------
-if _utils.__has_pywt__:
 
-    import pywt
 
-    # De-stripe : Munch Et Al algorithm
-    def munchetal_filter(im, wlevel, sigma, wname='db15'):
-        # Wavelet decomposition:
-        coeffs = pywt.wavedec2(im.astype(np.float32), wname, level=wlevel)
-        coeffsFlt = [coeffs[0]]
-        # FFT transform of horizontal frequency bands:
-        for i in range(1, wlevel + 1):
-            # FFT:
-            fcV = np.fft.fftshift(np.fft.fft(coeffs[i][1], axis=0))
-            my, mx = fcV.shape
-            # Damping of vertical stripes:
-            damp = 1 - np.exp(-(np.arange(-np.floor(my / 2.), -np.floor(my / 2.) + my) ** 2) / (2 * (sigma ** 2)))
-            dampprime = np.kron(np.ones((1, mx)), damp.reshape((damp.shape[0], 1)))
-            fcV = fcV * dampprime
-            # Inverse FFT:
-            fcVflt = np.real(np.fft.ifft(np.fft.ifftshift(fcV), axis=0))
-            cVHDtup = (coeffs[i][0], fcVflt, coeffs[i][2])
-            coeffsFlt.append(cVHDtup)
+# De-stripe : Munch Et Al algorithm
+def munchetal_filter(im, wlevel, sigma, wname='db15'):
+    # Wavelet decomposition:
+    coeffs = pywt.wavedec2(im.astype(np.float32), wname, level=wlevel)
+    coeffsFlt = [coeffs[0]]
+    # FFT transform of horizontal frequency bands:
+    for i in range(1, wlevel + 1):
+        # FFT:
+        fcV = np.fft.fftshift(np.fft.fft(coeffs[i][1], axis=0))
+        my, mx = fcV.shape
+        # Damping of vertical stripes:
+        damp = 1 - np.exp(-(np.arange(-np.floor(my / 2.), -np.floor(my / 2.) + my) ** 2) / (2 * (sigma ** 2)))
+        dampprime = np.kron(np.ones((1, mx)), damp.reshape((damp.shape[0], 1)))
+        fcV = fcV * dampprime
+        # Inverse FFT:
+        fcVflt = np.real(np.fft.ifft(np.fft.ifftshift(fcV), axis=0))
+        cVHDtup = (coeffs[i][0], fcVflt, coeffs[i][2])
+        coeffsFlt.append(cVHDtup)
 
-        # Get wavelet reconstruction:
-        im_f = np.real(pywt.waverec2(coeffsFlt, wname))
-        # Return image according to input type:
-        if (im.dtype == 'uint16'):
-            # Check extrema for uint16 images:
-            im_f[im_f < np.iinfo(np.uint16).min] = np.iinfo(np.uint16).min
-            im_f[im_f > np.iinfo(np.uint16).max] = np.iinfo(np.uint16).max
-            # Return filtered image (an additional row and/or column might be present):
-            return im_f[0:im.shape[0], 0:im.shape[1]].astype(np.uint16)
-        else:
-            return im_f[0:im.shape[0], 0:im.shape[1]]
+    # Get wavelet reconstruction:
+    im_f = np.real(pywt.waverec2(coeffsFlt, wname))
+    # Return image according to input type:
+    if (im.dtype == 'uint16'):
+        # Check extrema for uint16 images:
+        im_f[im_f < np.iinfo(np.uint16).min] = np.iinfo(np.uint16).min
+        im_f[im_f > np.iinfo(np.uint16).max] = np.iinfo(np.uint16).max
+        # Return filtered image (an additional row and/or column might be present):
+        return im_f[0:im.shape[0], 0:im.shape[1]].astype(np.uint16)
+    else:
+        return im_f[0:im.shape[0], 0:im.shape[1]]
 
-else: # No pywt
-    def munchetal_filter(im, wlevel, sigma, wname='db15'):
-        raise ImportError('pywt should be installed to use the Fourier-wavelet de-striper')

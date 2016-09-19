@@ -77,25 +77,25 @@ def get_tomo_file_num(fname):
     num_str = fname.split('_')[-1].split('.')[0]
     return num_str
 
-
+#~ TODO :
+#~ - Output format other than EDF ; and suffix possibly different from _0123.edf
+#~ - It assumes that the data is stored "alphabetically" (data of file_2718.edf comes after data of file_2717.edf)
 def apply_processing(myprocessing, dataset, options, extra_args=None):
     """
     Apply a processing on a whole dataset. The processing function is defined by the user.
 
-    myprocessing : function taking a numpy.ndarray (and possibly extra_args) as an input, and returning a numpy.ndarray
-        type: function
-    dataset : dataset information returned by explore_tomo_folder()
-        type : dict
-    folder_out : folder where the results will be saved
-        type: str
-    file_prefix_out : file prefix for the reconstruction (eg. "rec_")
-        type: str
-    extra_args : (optionnal) extra arguments that should be passed to the user's processing function
-        type: tuple
-
-    TODO :
-        - Output format other than EDF ; and suffix possibly different from _0123.edf
-        - It assumes that the data is stored "alphabetically" (data of file_2718.edf comes after data of file_2717.edf)
+    Parameters
+    ------------
+    myprocessing : function
+        function taking a numpy.ndarray (and possibly extra_args) as an input, and returning a numpy.ndarray
+    dataset : dict
+        dataset information returned by explore_tomo_folder()
+    folder_out : string
+        folder where the results will be saved
+    file_prefix_out : string
+        file prefix for the reconstruction (eg. ``"rec_"``)
+    extra_args : tuple
+        (optionnal) extra arguments that should be passed to the user's processing function
     """
 
 

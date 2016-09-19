@@ -37,9 +37,11 @@ from spire.operators.image import grad_tv_smoothed, tv_smoothed, norm2sq, dot
 def conjugate_gradient_tv(K, Kadj, data, Lambda, n_it, mu=1e-4, return_all=True):
     '''
     Conjugate Gradient algorithm to minimize the objective function
-        0.5*||K*x - d||_2^2 + Lambda*TV_mu (x)
+    1/2 ||K x - d||_2^2 + Lambda TV_mu (x)
     where TV_mu is the Moreau-Yosida regularization of the Total Variation.
 
+    Parameters
+    ------------
     K : forward operator
     Kadj : backward operator, adjoint of K
     data: acquired data
@@ -94,8 +96,10 @@ def conjugate_gradient_tv(K, Kadj, data, Lambda, n_it, mu=1e-4, return_all=True)
 def conjugate_gradient(K, Kadj, data, n_it, return_all=True):
     '''
     Conjugate Gradient algorithm for least squares fitting :
-        0.5*||K*x - d||_2^2
+    0.5 ||K x - d||_2^2
 
+    Parameters
+    -----------
     K : forward operator
     Kadj : backward operator, adjoint of K
     data: acquired data

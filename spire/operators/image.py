@@ -158,10 +158,16 @@ def grad_tv_smoothed(x, mu):
 
 def proj_l2(g, Lambda=1.0):
     '''
-    Proximal operator of the L2,1 norm :
-        L2,1(u) = sum_i ||u_i||_2   (i.e isotropic TV)
-    i.e pointwise projection onto the L2 unit ball
+    Proximal operator of the L2,1 norm (for isotropic TV)
 
+    .. math::
+
+        L_{2,1}(u) = \sum_i \left\|u_i\right|_2
+
+    i.e pointwise projection onto the L2 unit ball.
+
+    Parameters
+    ------------
     g : gradient-like numpy array
     Lambda : magnitude of the unit ball
     '''
@@ -174,10 +180,16 @@ def proj_l2(g, Lambda=1.0):
 
 def proj_l2_img(img, Lambda=1.0):
     '''
-    Proximal operator of the L2,1 norm :
-        L2,1(u) = sum_i ||u_i||_2   (i.e isotropic TV)
-    i.e pointwise projection onto the L2 unit ball
+    Proximal operator of the L2,1 norm (for isotropic TV)
 
+    .. math::
+
+        L_{2,1}(u) = \sum_i \left\|u_i\right|_2
+
+    i.e pointwise projection onto the L2 unit ball.
+
+    Parameters
+    -----------
     g : 2D numpy array
     Lambda : magnitude of the unit ball
     '''
@@ -191,7 +203,7 @@ def proj_l2_img(img, Lambda=1.0):
 
 def proj_linf(x, Lambda=1.):
     '''
-    Proximal operator of the dual of L1 norm (can be used for anisotropic TV),
+    Proximal operator of the dual of L1 norm (for anisotropic TV),
     i.e pointwise projection onto the L-infinity unit ball.
 
     x : variable
@@ -270,6 +282,39 @@ def ianscombe(y):
 # ------------------------------------------------------------------------------
 # ---------------------------- Misc --------------------------------------------
 # ------------------------------------------------------------------------------
+
+
+
+def scale_minmax(data, vmin=0, vmax=1, clip=False):
+    """
+    Scale the data values between [vmin, vmax].
+
+    Parameters
+    -----------
+    data: numpy.ndarray
+        Data to scale the values from
+    vmin: float, optional
+        Minimum value of the output range
+    vmax: float, optional
+        Maximum value of the output range
+    clip: bool, optional
+        Force the data to lie in [vmin, vmax] after operations
+    """
+    if vmin > vmax: raise ValueError("Must have vmin <= vmax")
+
+    Ai = data.min()
+    Bi = data.max()
+    Ao = vmin
+    Bo = vmax
+    alpha = (Bo-Ao)/(Bi-Ai)
+    beta = Ao - alpha*Ai
+    res = alpha*data + beta
+    if clip: res = np.clip(res, vmin, vmax)
+    return res
+
+
+
+
 
 
 from scipy.ndimage import convolve

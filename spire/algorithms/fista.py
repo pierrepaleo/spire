@@ -38,9 +38,11 @@ from spire.operators.image import norm2sq, norm1
 def fista_l1_operator(data, K, Kadj, Lambda, H, Hinv, soft_thresh, Lip=None, n_it=100, return_all=True):
     '''
     Beck-Teboulle's forward-backward algorithm to minimize the objective function
-        ||K*x - d||_2^2 + Lambda*||H*x||_1
+    ||K*x - d||_2^2 + Lambda*||H*x||_1
     When K and H are linear operators, and H is invertible.
 
+    Parameters
+    -----------
     K : forward operator
     Kadj : backward operator
     Lambda : weight of the regularization (the higher Lambda, the more sparse is the solution in the H domain)
@@ -104,9 +106,11 @@ def _soft_thresh(x, beta):
 def fista_l1(data, K, Kadj, Lambda, Lip=None, n_it=100, return_all=True):
     '''
     Beck-Teboulle's forward-backward algorithm to minimize the objective function
-        ||K*x - d||_2^2 + Lambda*||x||_1
+    ||K*x - d||_2^2 + Lambda*||x||_1
     When K is a linear operators.
 
+    Parameters
+    -----------
     K : forward operator
     Kadj : backward operator
     Lambda : weight of the regularization (the higher Lambda, the more sparse is the solution in the H domain)
@@ -144,13 +148,13 @@ def fista_l1(data, K, Kadj, Lambda, Lip=None, n_it=100, return_all=True):
 
 
 
-def fista_wavelets(data, W, K, Kadj, Lambda, Lip=None, n_it=100, return_all=True, normalize=False):
+def fista_wavelets(data, W, K, Kadj, Lambda, Lip=None, n_it=100, return_all=True, normalize=False, dta=False):
     """
     Algorithm for solving the regularized inverse problem
-        ||K x - data||_2^2  +  Lambda*||W x||_1
+    ||K x - data||_2^2  +  Lambda*||W x||_1
     Where K is some forward operator, and W is a Wavelet transform.
     FISTA is used to solve this algorithm provided that the Wavelet transform is semi-orthogonal:
-        W^T W = alpha* Id
+    W^T W = alpha* Id
     which is the case for DWT/SWT with orthogonal filters.
 
     Parameters
@@ -174,6 +178,8 @@ def fista_wavelets(data, W, K, Kadj, Lambda, Lip=None, n_it=100, return_all=True
     normalize: bool (Optional, default is False)
         If True, the thresholding is normalized (the threshold is smaller for the coefficients in finer scales).
         Mind that the threshold should be adapted (should be ~ twice bigger than for normalize=False).
+    dta: bool, optional, default is False.
+        Do Threshold Appcoefficients. If set to True, the approximation coefficients are thresholded.
     """
     if Lip is None:
         print("Warn: Lipschitz constant not provided, computing it with 20 iterations")
@@ -188,7 +194,7 @@ def fista_wavelets(data, W, K, Kadj, Lambda, Lip=None, n_it=100, return_all=True
         x_old = x
         W.set_image((y - (1.0/Lip)*grad_y).astype(np.float32))
         W.forward()
-        W.soft_threshold(Lambda/Lip, 0, normalize=normalize)
+        W.soft_threshold(Lambda/Lip, dta, normalize=normalize)
         W.inverse()
         x = W.image
         y = x + ((k-1.0)/(k+10.1))*(x - x_old) # TODO : see what would be the best parameter "a"

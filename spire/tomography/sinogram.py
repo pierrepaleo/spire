@@ -241,77 +241,6 @@ def extend_quadexp(sino0, m=2, alpha=0.65, zeroclip=False):
 # ------------ Determine the center of rotation --------------------------------
 # ------------------------------------------------------------------------------
 
-def _gaussian_kernel(ksize, sigma):
-    '''
-    Creates a gaussian function of length "ksize" with std "sigma"
-    '''
-    x = np.arange(ksize) - (ksize - 1.0) / 2.0
-    gaussian = np.exp(-(x / sigma) ** 2 / 2.0).astype(np.float32)
-    #gaussian /= gaussian.sum(dtype=np.float32)
-    return gaussian
-
-
-def get_center_shifts(sino, smin, smax, sstep=1):
-    '''
-    Determines the center of rotation according to
-        Vo NT Et Al, "Reliable method for calculating the center of rotation in parallel-beam tomography", Opt Express, 2014
-
-    The idea is the following :
-        - create a reflected version of the original sinogram
-        - shift this mirrored sinogram and append it to the original one
-        - take the Fourier Transform and see what happens in the vertical line (u = 0)
-        - repeat for different shifts
-    Please note that this method is quite slow for large sinograms
-
-    @param sino : sinogram as a numpy array
-    @param smin: minimum shift of lower sinogram (can be negative)
-    @param smax: maximum shift of lower sinogram
-    @param sstep: shift step (can be less than 1 for subpixel precision)
-    '''
-
-    if sstep < 1: raise NotImplementedError('subpixel precision is not implemented yet...')
-    sino_flip = sino[::-1, :]
-    n_angles, n_px = sino.shape
-    radius = n_px/8. #n_px #small radius => big complement of double-wedge
-    s_vec = np.arange(smin, smax+1, sstep)*1.0
-    Q_vec = np.zeros_like(s_vec)
-    for i,s in enumerate(s_vec):
-        print("[calc_center_shifts] Case %d/%d" % (i+1,s_vec.shape[0]))
-        # Create the artificial 360° sinogram (cropped)
-        sino2 = np.zeros((2*n_angles, n_px - abs(s)))
-        if s > 0:
-            sino2[:n_angles, :] = sino[:, s:]
-            sino2[n_angles:, :] = sino_flip[:, :-s]
-        elif s < 0:
-            sino2[:n_angles, :] = sino[:, :s]
-            sino2[n_angles:, :] = sino_flip[:, -s:]
-        else:
-            sino2[:n_angles, :] = sino
-            sino2[n_angles:, :] = sino_flip
-
-    #figure(); imshow(sino2);
-
-        # Create the mask "outside double wedge" (see [1])
-        R, C = generate_coords(sino2.shape)
-        mask = 1 - (np.abs(R) <= np.abs(C)*radius)
-
-        # Take FT of the sinogram and compute the Fourier metric
-        fft = Fft(sino2, force_complex=True)
-        sino2_f = fft.fft(sino2)
-        sino_f = np.abs(np.fft.fftshift(sino2_f))
-
-    #figure(); imshow(np.log(1+sino_f) * mask, interpolation="nearest"); colorbar();
-
-        #~ sino_f = np.log(sino_f)
-        Q_vec[i] = np.sum(sino_f * mask)/np.sum(mask)
-
-    s0 = s_vec[Q_vec.argmin()]
-    return n_px/2 + s0/2 - 0.5
-
-
-
-
-
 
 def centroid_objective(X, n_angles, centr):
     """
@@ -324,9 +253,7 @@ def centroid_objective(X, n_angles, centr):
 
 
 
-
-
-def get_center(sino, debug=False):
+def calc_center(sino, debug=False):
     '''
     Determines the center of rotation of a sinogram by computing the center of gravity of each row.
     The array of centers of gravity is fitted to a sine function.
@@ -363,141 +290,48 @@ def get_center(sino, debug=False):
 
 
 
+# TODO: apodization to dampen the sinogram borders
+def calc_center_corr(sino, fullrot=False, props=1):
+    """
+    Compute a guess of the Center of Rotation (CoR) of a given sinogram.
+    The computation is based on the correlation between the line projections at
+    angle (theta = 0) and at angle (theta = 180).
 
+    Note that for most scans, the (theta=180) angle is not included,
+    so the CoR might be underestimated.
+    In a [0, 360[ scan, the projection angle at (theta=180) is exactly in the
+    middle for odd number of projections.
 
+    Parameters
+    -----------
+    sino : numpy.ndarray
+        Sinogram
+    fullrot: bool, optional
+        If False (default), the scan is assumed to be [0, 180).
+        If True, the scan is assumed to be [0, 380).
+    props: integer, optional
+        Number of propositions for the CoR
+    """
 
-# ------------------------------------------------------------------------------
-# --------- Rings artifacts correction : Titarenko's algorithm
-# Taken from tomopy :
-#
-# Copyright (c) 2015, UChicago Argonne, LLC. All rights reserved.         #
-#                                                                         #
-# Copyright 2015. UChicago Argonne, LLC. This software was produced       #
-# under U.S. Government contract DE-AC02-06CH11357 for Argonne National   #
-# Laboratory (ANL), which is operated by UChicago Argonne, LLC for the    #
-# U.S. Department of Energy. The U.S. Government has rights to use,       #
-# reproduce, and distribute this software.  NEITHER THE GOVERNMENT NOR    #
-# UChicago Argonne, LLC MAKES ANY WARRANTY, EXPRESS OR IMPLIED, OR        #
-# ASSUMES ANY LIABILITY FOR THE USE OF THIS SOFTWARE.  If software is     #
-# modified to produce derivative works, such modified software should     #
-# be clearly marked, so as not to confuse it with the version available   #
-# from ANL.
-# ------------------------------------------------------------------------------
+    n_a, n_d = sino.shape
+    first = 0
+    last = -1 if not(fullrot) else n_a//2
+    proj1 = sino[first, :]
+    proj2 = sino[last, :][::-1]
 
-# De-stripe : Titarenko algorithm
-def remove_stripe_ti(sino, nblock=0, alpha=None):
-    if alpha is None: alpha = np.std(sino)
-    if nblock == 0:
-        d1 = _ring(sino, 1, 1)
-        d2 = _ring(sino, 2, 1)
-        p = d1 * d2
-        d = np.sqrt(p + alpha * np.abs(p.min()))
+    # Compute the correlation in the Fourier domain
+    proj1_f = np.fft.fft(proj1, 2*n_d)
+    proj2_f = np.fft.fft(proj2, 2*n_d)
+    corr = np.abs(np.fft.ifft(proj1_f * proj2_f.conj()))
+
+    if props == 1:
+        pos = np.argmax(corr)
+        if pos > n_d//2: pos -= n_d
+        return (n_d + pos)/2.
     else:
-        size = int(sino.shape[0] / nblock)
-        d1 = _ringb(sino, 1, 1, size)
-        d2 = _ringb(sino, 2, 1, size)
-        p = d1 * d2
-        d = np.sqrt(p + alpha * np.fabs(p.min()))
-    return d
-
-
-def _kernel(m, n):
-    v = [[np.array([1, -1]),
-          np.array([-3 / 2, 2, -1 / 2]),
-          np.array([-11 / 6, 3, -3 / 2, 1 / 3])],
-         [np.array([-1, 2, -1]),
-          np.array([2, -5, 4, -1])],
-         [np.array([-1, 3, -3, 1])]]
-    return v[m - 1][n - 1]
-
-
-def _ringMatXvec(h, x):
-    s = np.convolve(x, np.flipud(h))
-    u = s[np.size(h) - 1:np.size(x)]
-    y = np.convolve(u, h)
-    return y
-
-
-def _ringCGM(h, alpha, f):
-    x0 = np.zeros(np.size(f))
-    r = f - (_ringMatXvec(h, x0) + alpha * x0)
-    w = -r
-    z = _ringMatXvec(h, w) + alpha * w
-    a = np.dot(r, w) / np.dot(w, z)
-    x = x0 + np.dot(a, w)
-    B = 0
-    for i in range(1000000):
-        r = r - np.dot(a, z)
-        if np.linalg.norm(r) < 0.0000001:
-            break
-        B = np.dot(r, z) / np.dot(w, z)
-        w = -r + np.dot(B, w)
-        z = _ringMatXvec(h, w) + alpha * w
-        a = np.dot(r, w) / np.dot(w, z)
-        x = x + np.dot(a, w)
-    return x
-
-
-def _get_parameter(x):
-    return 1 / (2 * (x.sum(0).max() - x.sum(0).min()))
-
-
-def _ring(sino, m, n):
-    mysino = np.transpose(sino)
-    R = np.size(mysino, 0)
-    N = np.size(mysino, 1)
-
-    # Remove NaN.
-    pos = np.where(np.isnan(mysino) is True)
-    mysino[pos] = 0
-
-    # Parameter.
-    alpha = _get_parameter(mysino)
-
-    # Mathematical correction.
-    pp = mysino.mean(1)
-    h = _kernel(m, n)
-    f = -_ringMatXvec(h, pp)
-    q = _ringCGM(h, alpha, f)
-
-    # Update sinogram.
-    q.shape = (R, 1)
-    K = np.kron(q, np.ones((1, N)))
-    new = np.add(mysino, K)
-    newsino = new.astype(np.float32)
-    return np.transpose(newsino)
-
-
-def _ringb(sino, m, n, step):
-    mysino = np.transpose(sino)
-    R = np.size(mysino, 0)
-    N = np.size(mysino, 1)
-
-    # Remove NaN.
-    pos = np.where(np.isnan(mysino) is True)
-    mysino[pos] = 0
-
-    # Kernel & regularization parameter.
-    h = _kernel(m, n)
-
-    # Mathematical correction by blocks.
-    nblock = int(N / step)
-    new = np.ones((R, N))
-    for k in range(0, nblock):
-        sino_block = mysino[:, k * step:(k + 1) * step]
-        alpha = _get_parameter(sino_block)
-        pp = sino_block.mean(1)
-
-        f = -_ringMatXvec(h, pp)
-        q = _ringCGM(h, alpha, f)
-
-        # Update sinogram.
-        q.shape = (R, 1)
-        K = np.kron(q, np.ones((1, step)))
-        new[:, k * step:(k + 1) * step] = np.add(sino_block, K)
-    newsino = new.astype(np.float32)
-    return np.transpose(newsino)
-
+        corr_argsorted = np.argsort(corr)[:props]
+        corr_argsorted[corr_argsorted > n_d//2] -= n_d
+        return (n_d + corr_argsorted)/2.
 
 
 
@@ -524,22 +358,17 @@ def sinogram_consistency(sino, order=0, nsamples=2, angles=None):
 
     for :math:`k > n \geq 0` and :math:`k - n` even.
 
-    References:
-    [1] G. Van Gompel; M. Defrise; D. Van Dyck,
-        "Elliptical extrapolation of truncated 2D CT projections using Helgason-Ludwig consistency conditions",
-        Proc. SPIE. 6142, Medical Imaging 2006: Physics of Medical Imaging (March 02, 2006)
-
     Parameters
     -----------
     sino: numpy.ndarray
         The sinogram
-    order:
+    order: int
         Order of "n" in the Helgason-Ludwig integral.
         For n == 0, the result is the STD of the total absorption along the angles
-            (which should be zero for ideal non-truncated sinogram)
+        (which should be zero for ideal non-truncated sinogram)
         For n == 1, values of (n, k) are { (0, 2), (0, 4), ...}
         For n == 2, values of (n, k) are { (1, 3), (1, 5), ... }
-    nsamples:
+    nsamples: int
         Number of (n, k) tuples to take for the computation
 
     Returns
@@ -547,8 +376,14 @@ def sinogram_consistency(sino, order=0, nsamples=2, angles=None):
     For order == 0, this function returns the standard deviation of the
     sum of the sinogram along the bins, which should be as small as possible.
     For order > 0, it returns a (nsamples, 2) matrix. Each line contains the components (cos, sin)
-    of the second integral defined above. The values are computed for n = order-1 and k = n+2, n+4, ...
+    of the second integral defined above. The values are computed for n = order-1 and k = n+2, n+4, .
     Each value of the matrix should be as small as possible.
+
+    References:
+    ------------
+    [1] G. Van Gompel; M. Defrise; D. Van Dyck,
+    "Elliptical extrapolation of truncated 2D CT projections using Helgason-Ludwig consistency conditions",
+    Proc. SPIE. 6142, Medical Imaging 2006: Physics of Medical Imaging (March 02, 2006)
     """
 
 

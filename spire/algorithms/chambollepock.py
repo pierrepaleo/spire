@@ -40,15 +40,23 @@ from math import sqrt
 def chambolle_pock_tv(data, K, Kadj, Lambda, L=None,  n_it=100, return_all=True):
     '''
     Chambolle-Pock algorithm for Total Variation regularization.
-    The following objective function is minimized :
-        ||K*x - d||_2^2 + Lambda*TV(x)
+    The following objective function is minimized : ||K x - d||_2^2 + Lambda TV(x)
 
-    K : forward operator
-    Kadj : backward operator
-    Lambda : weight of the TV penalization (the higher Lambda, the more sparse is the solution)
-    L : norm of the operator [P, Lambda*grad] (see power_method)
-    n_it : number of iterations
-    return_all: if True, an array containing the values of the objective function will be returned
+    Parameters
+    -----------
+
+    K : function
+        forward operator
+    Kadj : function
+        backward operator
+    Lambda : float
+        weight of the TV penalization (the higher Lambda, the more sparse is the solution)
+    L : float
+        norm of the operator [P, Lambda*grad] (see power_method)
+    n_it : int
+        number of iterations
+    return_all: bool
+        if True, an array containing the values of the objective function will be returned
     '''
 
     if L is None:
@@ -93,10 +101,11 @@ def chambolle_pock_tv(data, K, Kadj, Lambda, L=None,  n_it=100, return_all=True)
 def chambolle_pock_l1_tv(data, K, Kadj, Lambda, L=None,  n_it=100, return_all=True):
     '''
     Chambolle-Pock algorithm for L1-TV.
-    The following objective function is minimized :
-        ||K*x - d||_1 + Lambda*TV(x)
+    The following objective function is minimized : ||K x - d||_1 + Lambda TV(x).
     This method is recommended against L2-TV for noise with strong outliers (eg. salt & pepper).
 
+    Parameters
+    ------------
     K : forward operator
     Kadj : backward operator
     Lambda : weight of the TV penalization (the higher Lambda, the more sparse is the solution)
@@ -148,8 +157,7 @@ def chambolle_pock_l1_tv(data, K, Kadj, Lambda, L=None,  n_it=100, return_all=Tr
 def chambolle_pock_kl_tv(data, K, Kadj, Lambda, L=None,  n_it=100, return_all=True):
     '''
     Chambolle-Pock algorithm for KL-TV.
-    The following objective function is minimized :
-        KL(K*x , d) + Lambda*TV(x)
+    The following objective function is minimized : KL(K x , d) + Lambda TV(x)
     Where KL(x, y) is a modified Kullback-Leibler divergence.
     This method might be more effective than L2-TV for Poisson noise.
 
@@ -427,8 +435,6 @@ def chambolle_pock_tv_wavelets(data, K, Kadj, W, Lambda1, Lambda2, L=None,  n_it
     if return_all: en = np.zeros(n_it)
     for k in range(0, n_it):
         # Update dual variables
-        # For isotropic TV, the prox is a projection onto the L2 unit ball.
-        # For anisotropic TV, this is a projection onto the L-infinity unit ball.
         p = proj_linf(p + sigma*gradient(x_tilde), Lambda1)
         q = (q + sigma*K(x_tilde) - sigma*data)/(1.0 + sigma)
         # Update primal variables

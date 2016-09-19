@@ -70,6 +70,7 @@ The filtering is done in the sinogram domain.
 from __future__ import division
 import numpy as np
 from spire.operators.tomography import AstraToolbox
+from spire.operators.image import gradient, div
 import os
 try:
     import h5py
@@ -144,15 +145,21 @@ def _convolve(sino, thefilter):
     return np.fft.ifft(sino_f , axis=1)[:, :npx].real
 
 
+
+
+
 def _compute_filter_operator(n_x, n_y, P, PT, alph, n_it, lambda_tikhonov=0):
         x = np.zeros((n_x, n_y), dtype=np.float32)
         x[n_x//2, n_y//2] = 1
         xs = np.zeros_like(x)
         for i in range(n_it):
             xs += x
-            x -= alph*PT(P(x)) + alph*lambda_tikhonov*x
+            x -= alph*PT(P(x))
+            if lambda_tikhonov != 0: x += alph*lambda_tikhonov*div(gradient(x))
             if ((i+1) % 10 == 0): print("Iteration %d / %d" % (i+1, n_it))
         return xs
+
+
 
 
 class SirtFilter:
@@ -175,7 +182,7 @@ class SirtFilter:
         self.tomo = tomo
         self.n_it = n_it
         self.hdf5 = hdf5
-        self.thefilter = self._compute_filter(savedir, lambda_tikhonov)
+        self.thefilter = self._compute_filter(savedir=savedir, lambda_tikhonov=lambda_tikhonov)
 
     def _compute_filter(self, savedir=None, lambda_tikhonov=0):
 
@@ -222,7 +229,7 @@ class SirtFilter:
         PT = lambda y : AST2.backproj(y, filt=False)
 
         # Compute the filter with this odd shape
-        xs = _compute_filter_operator(n_x, n_y, P, PT, alph, niter, lambda_tikhonov)
+        xs = _compute_filter_operator(n_x, n_y, P, PT, alph, niter, lambda_tikhonov=lambda_tikhonov)
 
         # The filtering is done in the sinogram domain, using FFT
         # The filter has to be forward projected, then FT'd

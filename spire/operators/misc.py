@@ -39,8 +39,8 @@ from spire.operators.image import norm2sq, dot
 def power_method(K, Kadj, data, n_it=10):
     '''
     Calculates the norm of operator K
-    i.e the sqrt of the largest eigenvalue of K^T*K
-        ||K|| = sqrt(lambda_max(K^T*K))
+    i.e the sqrt of the largest eigenvalue of K^T K
+    ||K|| = sqrt(lambda_max(K^T K))
 
     K : forward operator
     Kadj : backward operator (adjoint of K)
@@ -58,7 +58,7 @@ def power_method(K, Kadj, data, n_it=10):
 def check_adjoint(K, Kadj, K_input_shape, Kadj_input_shape):
     '''
     Checks if the operators K and Kadj are actually adjoint of eachother, i.e if
-        < K(x), y > = < x, Kadj(y) >
+     < K(x), y > = < x, Kadj(y) >
     '''
 
     x = np.random.rand(*K_input_shape)

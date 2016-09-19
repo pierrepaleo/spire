@@ -226,7 +226,7 @@ class AstraToolbox:
             raise ValueError("Unknown convolution mode")
 
 
-
+    # TODO: fix problem for odd n_px
     def extend_projections(self, sino, method=1):
         """
         Extrapolate the sinogram of n/2 at each side
