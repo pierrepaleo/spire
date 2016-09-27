@@ -71,7 +71,7 @@ if __name__ == '__main__':
     setup(name = "spire",
         version = __version,
         platforms = ["linux_x86", "linux_x86_64"],
-        description = "Various Image processing and Tomography Algorithms",
+        description = "Simple Prototyping for Image Reconstruction",
         author = "Pierre Paleo",
         author_email = "pierre.paleo@esrf.fr",
         maintainer = "Pierre Paleo",

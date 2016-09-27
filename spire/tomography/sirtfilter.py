@@ -224,7 +224,7 @@ class SirtFilter:
             n_y += 1
 
         # Initialize ASTRA with this new geometry
-        AST2 = AstraToolbox((n_x, n_y), nAng, super_sampling=8) # rot center is not required in the computation of the filter
+        AST2 = AstraToolbox((n_x, n_y), nAng, super_sampling=8, rot_center=tomo.rot_center) # rot center is not required in the computation of the filter
         P = lambda x : AST2.proj(x) #*3.14159/2.0/nAng
         PT = lambda y : AST2.backproj(y, filt=False)
 

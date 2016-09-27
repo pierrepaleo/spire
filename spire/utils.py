@@ -34,7 +34,7 @@ from __future__ import division
 import numpy as np
 import random
 import string
-from math import pi
+from math import pi, cos, sin
 
 try:
     import matplotlib.pyplot as plt
@@ -196,21 +196,26 @@ def ceilpow2(N):
     return p
 
 
-def phantom_mask(img, radius=None):
-    if radius is None: radius = img.shape[0]//2-10
-    R, C = generate_coords(img.shape)
-    M = R**2+C**2
-    res = np.zeros_like(img)
-    res[M<radius**2] = img[M<radius**2]
-    return res
-
-
 def clip_circle(img, center=None, radius=None):
     R, C = generate_coords(img.shape, center)
     M = R**2+C**2
     res = np.zeros_like(img)
     res[M<radius**2] = img[M<radius**2]
     return res
+
+
+def ellipse_mask(img_shape, r, c, a, b, phi=None):
+    if phi is None: phi = 0
+    else: phi = np.deg2rad(phi)
+    R, C = generate_coords(img_shape)
+    mask = np.zeros(img_shape)
+    x = R - r
+    y = C - c
+    mask[(x*cos(phi)+y*sin(phi))**2/a**2 + (y*cos(phi)-x*sin(phi))**2/b**2 <= 1.] = 1
+    return mask
+
+
+
 
 
 def gaussian1D(sigma):
