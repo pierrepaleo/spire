@@ -1,5 +1,8 @@
+<!---
+There is no build/doc for now
 [![Build Status](https://travis-ci.org/pierrepaleo/spire.svg?branch=master)](https://travis-ci.org/pierrepaleo/spire/)
 [![Documentation](https://readthedocs.org/projects/spire/badge/?version=latest)](http://spire.readthedocs.org/en/latest/)
+-->
 
 ## Presentation
 
