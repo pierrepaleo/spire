@@ -181,6 +181,8 @@ def fista_wavelets(data, W, K, Kadj, Lambda, Lip=None, n_it=100, return_all=True
     dta: bool, optional, default is False.
         Do Threshold Appcoefficients. If set to True, the approximation coefficients are thresholded.
     """
+    dta = 1 if bool(dta) else 0
+    normalize = 1 if bool(normalize) else 0
     if Lip is None:
         print("Warn: Lipschitz constant not provided, computing it with 20 iterations")
         Lip = power_method(K, Kadj, data, 20)**2 * 1.2
@@ -194,7 +196,7 @@ def fista_wavelets(data, W, K, Kadj, Lambda, Lip=None, n_it=100, return_all=True
         x_old = x
         W.set_image((y - (1.0/Lip)*grad_y).astype(np.float32))
         W.forward()
-        W.soft_threshold(Lambda/Lip, dta, normalize=normalize)
+        W.soft_threshold(Lambda/Lip, do_threshold_appcoeffs=dta, normalize=normalize)
         W.inverse()
         x = W.image
         y = x + ((k-1.0)/(k+10.1))*(x - x_old) # TODO : see what would be the best parameter "a"

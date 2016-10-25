@@ -457,7 +457,7 @@ def munchetal_filter(im, wlevel, sigma, wname='db15'):
         my, mx = fcV.shape
         # Damping of vertical stripes:
         damp = 1 - np.exp(-(np.arange(-np.floor(my / 2.), -np.floor(my / 2.) + my) ** 2) / (2 * (sigma ** 2)))
-        dampprime = np.kron(np.ones((1, mx)), damp.reshape((damp.shape[0], 1)))
+        dampprime = np.kron(np.ones((1, mx)), damp.reshape((damp.shape[0], 1))) # np.tile(damp[:, np.newaxis], (1, mx))
         fcV = fcV * dampprime
         # Inverse FFT:
         fcVflt = np.real(np.fft.ifft(np.fft.ifftshift(fcV), axis=0))
