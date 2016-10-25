@@ -21,20 +21,12 @@ It is divided in several parts:
 
 ## Installation
 
-### Installation from a Python wheel
+### Installation from pypi
 
-If a Python wheel is provided, you can install it with pip :
-
-```bash
-pip install --user wheel.whl
-```
-
-where ``wheel.whl`` is the wheel of the current version.
-
-If you are *updating* SPIRE, you have to force the re-installation :
+spire is available on the Python package index:
 
 ```bash
-pip install --user --force-reinstall wheel.whl
+pip install --user spire
 ```
 
 
@@ -52,12 +44,6 @@ git clone git://github.com/pierrepaleo/spire
 python setup.py install --user
 ```
 
-* Alternatively, you can generate a wheel and then install this wheel:
-
-```bash
-python setup.py bdist_wheel
-pip install --user dist/wheel.whl
-```
 
 
 ### Dependencies

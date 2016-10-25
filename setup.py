@@ -83,7 +83,7 @@ if __name__ == '__main__':
 
         packages=packages,
         package_dir = package_dir,
-        package_data={'': ['samples/lena.npz']},
+        package_data={'': ['samples/lena.npz', 'samples/brain256.npz', 'samples/brain512.npz', 'samples/brain1024.npz', 'samples/brain2048.npz', 'samples/brain4096.npz']},
         #~ data_files=[("spire-data", ["spire/samples/lena.npz"])], # not copied in site-packages !
 
         long_description = """
