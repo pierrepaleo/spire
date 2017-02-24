@@ -213,3 +213,132 @@ def fista_wavelets(data, W, K, Kadj, Lambda, Lip=None, n_it=100, return_all=True
 
 
 
+
+
+# EXPERIMENTAL
+# if working, it would be interesting to do the copy/add/scale operations from pypwt
+# (for now, the coeffs are always copied from/to GPU as a list of np.ndarray)
+from copy import deepcopy
+def fista_wavelets_synth(data, W, K, Kadj, Lambda, Lip=None, n_it=100, normalize=False, dta=False):
+    """
+    Solve
+    ||K W^T w - data||_2^2  +  Lambda*||w||_1
+    """
+    dta = 1 if bool(dta) else 0
+    normalize = 1 if bool(normalize) else 0
+    if Lip is None:
+        print("Warn: Lipschitz constant not provided, computing it with 20 iterations")
+        Lip = power_method(K, Kadj, data, 20)**2 * 1.2 * (4**W.levels) # composition with "W"
+        print("Lip = %e" % Lip)
+
+    def opW(x):
+        W.set_image(x)
+        W.forward()
+        return deepcopy(W.coeffs)
+
+    def opWadj(x):
+        W.set_coeff(x[0], 0, check=True*0)
+        for i in range(1, len(x)):
+            W.set_coeff(x[i][0], 3*(i-1)+1, check=True*0)
+            W.set_coeff(x[i][1], 3*(i-1)+2, check=True*0)
+            W.set_coeff(x[i][2], 3*(i-1)+3, check=True*0)
+        W.inverse()
+        return W.image * 4.**W.levels # scaling to get the transpose
+
+
+    def coeffs_add_scaled(y, x, alpha):
+        """
+        y = y + alpha*x
+        """
+        y[0] += alpha*x[0]
+        for i in range(1, len(x)):
+            y[i][0] += alpha*x[i][0]
+            y[i][1] += alpha*x[i][1]
+            y[i][2] += alpha*x[i][2]
+    #
+
+    def coeffs_soft_thresh(out, x, beta, do_threshold_appcoeffs=False, normalize=False):
+        if do_threshold_appcoeffs: out[0] = _soft_thresh(x[0], beta)
+        for i in range(1, len(x)):
+            if normalize: beta /= 1.4142135623730951
+            out[i][0] = _soft_thresh(x[i][0], beta)
+            out[i][1] = _soft_thresh(x[i][1], beta)
+            out[i][2] = _soft_thresh(x[i][2], beta)
+    #
+
+    def coeffs_memset(x):
+        x[0] *= 0
+        for i in range(1, len(x)):
+            x[i][0] *= 0
+            x[i][1] *= 0
+            x[i][2] *= 0
+    #
+
+    def coeffs_norm2sq(x, order):
+        res = 0
+        res = x[0].ravel().dot(x[0].ravel())
+        for i in range(1, len(x)):
+            res += x[i][0].ravel().dot(x[i][0].ravel())
+            res += x[i][1].ravel().dot(x[i][1].ravel())
+            res += x[i][2].ravel().dot(x[i][2].ravel())
+        return res
+
+
+    def coeffs_norm1(x):
+        res = 0
+        res = np.sum(np.abs(x[0]))
+        for i in range(1, len(x)):
+            res += np.sum(np.abs(x[i][0]))
+            res += np.sum(np.abs(x[i][1]))
+            res += np.sum(np.abs(x[i][2]))
+        return res
+
+
+    x = opW(np.zeros_like(Kadj(data)))
+    y = deepcopy(x)
+    for k in range(0, n_it):
+
+        grad_y = opW(Kadj(K(opWadj(y)) - data))
+        x_old = deepcopy(x)
+        # y - (1.0/Lip)*grad_y
+        coeffs_add_scaled(y, grad_y, (-1.0/Lip))
+        # soft threshold this
+        coeffs_soft_thresh(x, y, Lambda/Lip, do_threshold_appcoeffs=dta, normalize=normalize)
+
+        # y = x + theta*(x - x_old)   = (1 + theta)*x - theta*x_old
+        theta = (k-1.0)/(k+10.1) # TODO: determine best parameter "a" (here 10.1)
+        coeffs_memset(y)
+        coeffs_add_scaled(y, x, 1+theta)
+        coeffs_add_scaled(y, x_old, -theta)
+
+
+        # Calculate norms
+        if (k%10 == 0):
+            fidelity = 0.5*norm2sq(K(opWadj(x))-data)
+            l1 = coeffs_norm1(x)
+            energy = fidelity + Lambda*l1
+            print("[%d] : energy %e \t fidelity %e \t L1 %e" % (k, energy, fidelity, l1))
+    return opWadj(x)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

@@ -44,7 +44,7 @@ def convolve_sep_scipy(img, kernel, mode):
 
 
 def convolve2_scipy(img, kernel, mode):
-    return filters.convolve(img, self.kernel, mode)
+    return filters.convolve(img, kernel, mode=mode)
 
 
 def _fftconv1(im, k):

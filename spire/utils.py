@@ -179,7 +179,7 @@ def _randomword(length):
 
 def generate_coords(img_shp, center=None):
     l_r, l_c = float(img_shp[0]), float(img_shp[1])
-    R, C = np.mgrid[:l_r, :l_c] # np.indices is faster but returns integers !
+    R, C = np.mgrid[:l_r, :l_c] # np.indices is faster
     if center is None:
         center0, center1 = l_r / 2., l_c / 2.
     else:

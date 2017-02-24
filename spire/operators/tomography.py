@@ -254,17 +254,21 @@ class AstraToolbox:
         boundary_right *= method
 
         sino_extended[:, n_px:n_px+n_px//2] = np.tile(boundary_right, (1, n_px//2))
-        sino_extended[:, -n_px//2:] = np.tile(boundary_left, (1, n_px//2))
+        sino_extended[:, -n_px//2 + (n_px & 1):] = np.tile(boundary_left, (1, n_px//2))
         return sino_extended
 
 
 
-    def run_algorithm(self, alg, n_it, data):
+    def run_algorithm(self, alg, n_it, data, extra_args=None):
         rec_id = astra.data2d.create('-vol', self.vol_geom)
         sino_id = astra.data2d.create('-sino', self.proj_geom, data)
         cfg = astra.astra_dict(alg)
         cfg['ReconstructionDataId'] = rec_id
         cfg['ProjectionDataId'] = sino_id
+        if extra_args is not None:
+            cfg["option"] = {}
+            for key, val in extra_args.items():
+                cfg["option"][key] = val
         alg_id = astra.algorithm.create(cfg)
         print("Running %s" %alg)
         astra.algorithm.run(alg_id, n_it)

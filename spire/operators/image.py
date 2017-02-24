@@ -284,6 +284,62 @@ def ianscombe(y):
 # ------------------------------------------------------------------------------
 
 
+def expand_reflect(img, borderwidth):
+    """
+    Create an image with twice the support of the input image.
+    The borders are reflected in the extended image.
+    """
+    Nr, Nc = img.shape
+    Nr2, Nc2 = 2*Nr, 2*Nc
+    img2 = np.zeros((Nr2, Nc2))
+
+    """
+    *---------------*
+    |               |
+    |   a*-----*d   |
+    |    |     |    |
+    |    |     |    |
+    |   b*-----*c   |
+    |               |
+     *--------------*
+    """
+    a = (Nr//2, Nc//2)
+    b = (Nr//2+Nr, Nc//2)
+    c = (Nr//2+Nr, Nc//2+Nc)
+    d = (Nr//2, Nc//2+Nc)
+    w = borderwidth
+    # inner
+    img2[a[0]:b[0], a[1]:d[1]] = np.copy(img)
+    # left
+    img2[a[0]:b[0], a[1]-w:a[1]] = np.copy(img[:, :w][:, ::-1])
+    # bottom
+    img2[b[0]:b[0]+w, b[1]:c[1]] = np.copy(img[-w:, :][::-1, :])
+    # right
+    img2[d[0]:c[0], d[1]:d[1]+w] = np.copy(img[:, -w:][:, ::-1])
+    # top
+    img2[a[0]-w: a[0], a[1]:d[1]] = np.copy(img[:w, :][::-1, :])
+    # top-left
+    img2[a[0]-w:a[0], a[1]-w:a[1]] = np.copy(img[:w, :w][::-1, ::-1])
+    # bottom-left
+    img2[b[0]:b[0]+w, b[1]-w:b[1]] = np.copy(img[-w:, :w][::-1, ::-1])
+    # bottom-right
+    img2[c[0]:c[0]+w, c[1]:c[1]+w] = np.copy(img[-w:, -w:][::-1, ::-1])
+    # top-right
+    img2[d[0]-w: d[0], d[1]:d[1]+w] = np.copy(img[:w, -w:][::-1, ::-1])
+
+    return img2
+
+
+
+
+
+
+
+
+
+
+
+
 
 def scale_minmax(data, vmin=0, vmax=1, clip=False):
     """

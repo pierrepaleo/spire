@@ -376,7 +376,7 @@ def chambolle_pock_tv_precond(data, K, Kadj, Lambda, n_it=100, return_all=True):
     theta = 1.0
 
     # Compute the diagonal preconditioner "Sigma" for alpha=1
-    # Assuming K is a positive operator
+    # Assuming K is a positive integral operator
     Sigma_k = 1./K(np.ones_like(x))
     Sigma_grad = 1/2.0
     Sigma = 1/(1./Sigma_k + 1./Sigma_grad)
@@ -519,7 +519,107 @@ def chambolle_pock_tv_l2(data, K, Kadj, U, Uadj, Lambda, Lambda2, L=None,  n_it=
 
 
 
+def _soft_thresh(x, beta):
+    return np.maximum(np.abs(x)-beta, 0)*np.sign(x)
+
+
+def pinv_fourier(img, kern, tau=1., bw=10):
+    n_r, n_c = img.shape
+    shp2 = (2*n_r, 2*n_c)
+    img_f = np.fft.fft2(expand_reflect(img, bw))
+    kern_f = np.fft.fft2(kern, shp2)
+    res = np.fft.ifft2(img_f / (1. + tau*kern_f))[n_r//2:n_r//2+n_r, n_c//2:n_c//2+n_c] #.real
+    return np.abs(res)
+
+
+
+#~ def pinv_fourier(img, kern, tau=1., bw=10):
+    #~ n_r, n_c = img.shape
+    #~ shp2 = (2*n_r, 2*n_c)
+    #~ img_f = np.fft.fft2(img, shp2)
+    #~ kern_f = np.fft.fft2(kern, shp2)
+    #~ res = np.fft.ifft2(img_f / (1. + tau*kern_f))[:n_r, :n_c]
+    #~ return np.abs(res)
 
 
 
 
+def chambolle_pock_deblur_tv(img, G, kern, Lambda, L=None, n_it=100, return_all=True, bw=10):
+    """
+    prototype
+    """
+
+    if L is None: L = 2.83 # sqrt(8)
+    sigma = 1.0/L
+    tau = 1.0/L
+    theta = 1.0
+
+    x = 0*img
+    x_tilde = 0*x
+    y = 0*x
+
+    if return_all: en = np.zeros(n_it)
+    for k in range(0, n_it):
+        # y_{k+1} = prox_{sigma G^*} (y_k + sigma K xtilde_k)
+        y = _soft_thresh(y + sigma*gradient(x_tilde), Lambda*sigma)
+        # x_{k+1} = prox_{tau F} (x_n - tau K^* y_{k+1})
+        x_old = np.copy(x)
+        x = pinv_fourier(x + tau*div(y) + tau*G(img), kern, tau=tau, bw=bw)
+        # xtilde{k+1} = x_{k+1} + theta (x_{k+1} - x_k)
+        x_tilde = x + theta*(x - x_old)
+        # Calculate norms
+        if return_all:
+            fidelity = 0.5*norm2sq(G(x)-img)
+            tv = norm1(gradient(x))
+            energy = 1.0*fidelity + Lambda*tv
+            en[k] = energy
+            if (k%10 == 0): # TODO: more flexible
+                print("[%d] : energy %e \t fidelity %e \t TV %e" %(k,energy,fidelity,tv))
+    if return_all: return en, x
+    else: return x
+
+
+
+
+
+
+
+
+def chambolle_pock_laplace(data, K, Kadj, Lambda, L=None,  n_it=100, return_all=True):
+
+    if L is None:
+        print("Warn: chambolle_pock(): Lipschitz constant not provided, computing it with 20 iterations")
+        L = power_method(K, Kadj, data, 20)
+        L = sqrt(8.**2 + L**2) * 1.2 # Laplacian is self-adjoint, and have a norm 8 (squared of gradient)
+        print("L = %e" % L)
+
+    sigma = 1.0/L
+    tau = 1.0/L
+
+    x = 0*Kadj(data)
+    p = 0*laplacian(x)
+    q = 0*data
+    x_tilde = 0*x
+    theta = 1.0
+
+    if return_all: en = np.zeros(n_it)
+    for k in range(0, n_it):
+        # Update dual variables
+        # For isotropic TV, the prox is a projection onto the L2 unit ball.
+        # For anisotropic TV, this is a projection onto the L-infinity unit ball.
+        p = proj_linf(p + sigma*laplacian(x_tilde), Lambda)
+        q = (q + sigma*K(x_tilde) - sigma*data)/(1.0 + sigma)
+        # Update primal variables
+        x_old = x
+        x = x - tau*laplacian(p) - tau*Kadj(q)
+        x_tilde = x + theta*(x - x_old)
+        # Calculate norms
+        if return_all:
+            fidelity = 0.5*norm2sq(K(x)-data)
+            tv = norm1(laplacian(x))
+            energy = 1.0*fidelity + Lambda*tv
+            en[k] = energy
+            if (k%10 == 0): # TODO: more flexible
+                print("[%d] : energy %e \t fidelity %e \t TV %e" %(k,energy,fidelity,tv))
+    if return_all: return en, x
+    else: return x
