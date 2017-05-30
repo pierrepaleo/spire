@@ -107,6 +107,21 @@ def div_axis(x, axis=-1):
     return t1 + t2
 
 
+
+
+
+def huber(x, mu):
+    """
+    Huber function, i.e approximation of the absolute value
+    """
+    res = np.zeros_like(x)
+    M = np.abs(x)
+    M1 = M < mu
+    M2 = np.logical_not(M1)
+    res[M1] = x[M1]**2 / (2*mu) + mu/2.
+    res[M2] = M[M2]
+    return res
+
 def psi(x, mu):
     '''
     Huber function needed to compute tv_smoothed
@@ -276,6 +291,12 @@ def ianscombe(y):
 
 
 
+def ibarlett(x):
+    """
+    Barlett inverse VST, more numerically stable than the inverse Anscombe VST
+    """
+    return x**2 / 4. - 3./8
+
 
 
 
@@ -283,8 +304,56 @@ def ianscombe(y):
 # ---------------------------- Misc --------------------------------------------
 # ------------------------------------------------------------------------------
 
+def expand_reflect(img, rows_ext, cols_ext):
+    """
+    Create an image with an extended support.
+    The borders are reflected in the extended image.
 
-def expand_reflect(img, borderwidth):
+    rows_ext and cols_ext should be even.
+    """
+    Nr, Nc = img.shape
+    Nr2, Nc2 = Nr+rows_ext, Nc+cols_ext
+    img2 = np.zeros((Nr2, Nc2))
+
+    """
+    *---------------*
+    |               |
+    |   a*-----*d   |
+    |    |     |    |
+    |    |     |    |
+    |   b*-----*c   |
+    |               |
+     *--------------*
+    """
+    hr = rows_ext//2
+    hc = cols_ext//2
+    a = (hr, hc)
+    b = (hr+Nr, hc)
+    c = (hr+Nr, hc+Nc)
+    d = (hr, hc+Nc)
+    # inner
+    img2[a[0]:b[0], a[1]:d[1]] = np.copy(img) # TODO: odd sizes
+    # left
+    img2[a[0]:b[0], a[1]-hc:a[1]] = np.copy(img[:, :hc][:, ::-1])
+    # bottom
+    img2[b[0]:b[0]+hr, b[1]:c[1]] = np.copy(img[-hr:, :][::-1, :])
+    # right
+    img2[d[0]:c[0], d[1]:d[1]+hc] = np.copy(img[:, -hc:][:, ::-1])
+    # top
+    img2[a[0]-hr: a[0], a[1]:d[1]] = np.copy(img[:hr, :][::-1, :])
+    # top-left
+    img2[a[0]-hr:a[0], a[1]-hc:a[1]] = np.copy(img[:hr, :hc][::-1, ::-1])
+    # bottom-left
+    img2[b[0]:b[0]+hr, b[1]-hc:b[1]] = np.copy(img[-hr:, :hc][::-1, ::-1])
+    # bottom-right
+    img2[c[0]:c[0]+hr, c[1]:c[1]+hc] = np.copy(img[-hr:, -hc:][::-1, ::-1])
+    # top-right
+    img2[d[0]-hr: d[0], d[1]:d[1]+hc] = np.copy(img[:hr, -hc:][::-1, ::-1])
+
+    return img2
+
+
+def expand_reflect2(img, borderwidth):
     """
     Create an image with twice the support of the input image.
     The borders are reflected in the extended image.

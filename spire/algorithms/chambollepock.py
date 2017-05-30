@@ -37,7 +37,7 @@ from spire.operators.image import gradient, div, norm1, norm2sq, proj_l2, proj_l
 from math import sqrt
 
 
-def chambolle_pock_tv(data, K, Kadj, Lambda, L=None,  n_it=100, return_all=True):
+def chambolle_pock_tv(data, K, Kadj, Lambda, L=None,  n_it=100, return_all=True, x0=None):
     '''
     Chambolle-Pock algorithm for Total Variation regularization.
     The following objective function is minimized : ||K x - d||_2^2 + Lambda TV(x)
@@ -57,6 +57,8 @@ def chambolle_pock_tv(data, K, Kadj, Lambda, L=None,  n_it=100, return_all=True)
         number of iterations
     return_all: bool
         if True, an array containing the values of the objective function will be returned
+    x0: numpy.ndarray
+        initial solution estimate
     '''
 
     if L is None:
@@ -68,10 +70,13 @@ def chambolle_pock_tv(data, K, Kadj, Lambda, L=None,  n_it=100, return_all=True)
     sigma = 1.0/L
     tau = 1.0/L
 
-    x = 0*Kadj(data)
-    p = 0*gradient(x)
+    if x0 is not None:
+        x = x0
+    else:
+        x = 0*Kadj(data)
+    p = gradient(x)
     q = 0*data
-    x_tilde = 0*x
+    x_tilde = 1.0*x
     theta = 1.0
 
     if return_all: en = np.zeros(n_it)
@@ -98,7 +103,7 @@ def chambolle_pock_tv(data, K, Kadj, Lambda, L=None,  n_it=100, return_all=True)
 
 
 
-def chambolle_pock_l1_tv(data, K, Kadj, Lambda, L=None,  n_it=100, return_all=True):
+def chambolle_pock_l1_tv(data, K, Kadj, Lambda, L=None,  n_it=100, return_all=True, x0=None):
     '''
     Chambolle-Pock algorithm for L1-TV.
     The following objective function is minimized : ||K x - d||_1 + Lambda TV(x).
@@ -112,6 +117,7 @@ def chambolle_pock_l1_tv(data, K, Kadj, Lambda, L=None,  n_it=100, return_all=Tr
     L : norm of the operator [P, Lambda*grad] (see power_method)
     n_it : number of iterations
     return_all: if True, an array containing the values of the objective function will be returned
+    x0: initial solution estimate
     '''
 
     if L is None:
@@ -122,7 +128,10 @@ def chambolle_pock_l1_tv(data, K, Kadj, Lambda, L=None,  n_it=100, return_all=Tr
     sigma = 1.0/L
     tau = 1.0/L
 
-    x = 0*Kadj(data)
+    if x0 is not None:
+        x = x0
+    else:
+        x = 0*Kadj(data)
     p = 0*gradient(x)
     q = 0*data
     x_tilde = 0*x
@@ -154,7 +163,7 @@ def chambolle_pock_l1_tv(data, K, Kadj, Lambda, L=None,  n_it=100, return_all=Tr
 
 
 
-def chambolle_pock_kl_tv(data, K, Kadj, Lambda, L=None,  n_it=100, return_all=True):
+def chambolle_pock_kl_tv(data, K, Kadj, Lambda, L=None,  n_it=100, return_all=True, x0=None):
     '''
     Chambolle-Pock algorithm for KL-TV.
     The following objective function is minimized : KL(K x , d) + Lambda TV(x)
@@ -167,6 +176,7 @@ def chambolle_pock_kl_tv(data, K, Kadj, Lambda, L=None,  n_it=100, return_all=Tr
     L : norm of the operator [P, Lambda*grad] (see power_method)
     n_it : number of iterations
     return_all: if True, an array containing the values of the objective function will be returned
+    x0: initial solution estimate
     '''
 
     if L is None:
@@ -177,7 +187,10 @@ def chambolle_pock_kl_tv(data, K, Kadj, Lambda, L=None,  n_it=100, return_all=Tr
     sigma = 1.0/L
     tau = 1.0/L
 
-    x = 0*Kadj(data)
+    if x0 is not None:
+        x = x0
+    else:
+        x = 0*Kadj(data)
     p = 0*gradient(x)
     q = 0*data
     x_tilde = 0*x
@@ -220,7 +233,7 @@ def chambolle_pock_kl_tv(data, K, Kadj, Lambda, L=None,  n_it=100, return_all=Tr
 
 
 # Accelerated algorithm for F *or* G^* uniformly convex (Algorithm 2, p. 15)
-def chambolle_pock_tv2(data, K, Kadj, Lambda, L=None, gamma=1.0, theta=1.0, n_it=100, return_all=True):
+def chambolle_pock_tv2(data, K, Kadj, Lambda, L=None, gamma=1.0, theta=1.0, n_it=100, return_all=True, x0=None):
 
     if L is None:
         print("Warn: chambolle_pock(): Lipschitz constant not provided, computing it with 20 iterations")
@@ -232,7 +245,10 @@ def chambolle_pock_tv2(data, K, Kadj, Lambda, L=None, gamma=1.0, theta=1.0, n_it
     tau = 1.0/L
     #gamma = 0.5 # Should be the uniform convexity parameter of "F"
 
-    x = 0*Kadj(data)
+    if x0 is not None:
+        x = x0
+    else:
+        x = 0*Kadj(data)
     p = 0*gradient(x)
     q = 0*data
     x_tilde = 0*x
@@ -266,7 +282,7 @@ def chambolle_pock_tv2(data, K, Kadj, Lambda, L=None, gamma=1.0, theta=1.0, n_it
 
 
 
-def chambolle_pock_tv_relaxed(data, K, Kadj, Lambda, L=None,  n_it=100, return_all=True):
+def chambolle_pock_tv_relaxed(data, K, Kadj, Lambda, L=None,  n_it=100, return_all=True, x0=None):
 
     if L is None:
         print("Warn: chambolle_pock(): Lipschitz constant not provided, computing it with 20 iterations")
@@ -277,7 +293,10 @@ def chambolle_pock_tv_relaxed(data, K, Kadj, Lambda, L=None,  n_it=100, return_a
     sigma = 1.0/L
     tau = 1.0/L
 
-    x = 0*Kadj(data)
+    if x0 is not None:
+        x = x0
+    else:
+        x = 0*Kadj(data)
     p = 0*gradient(x)
     q = 0*data
     x_tilde = 0*x
@@ -304,7 +323,7 @@ def chambolle_pock_tv_relaxed(data, K, Kadj, Lambda, L=None,  n_it=100, return_a
 
 
 
-def chambolle_pock_tv_relaxed2(data, K, Kadj, Lambda, L=None, rho=1.9, tau = None, n_it=100, return_all=True):
+def chambolle_pock_tv_relaxed2(data, K, Kadj, Lambda, L=None, rho=1.9, tau = None, n_it=100, return_all=True, x0=None):
 
     if L is None:
         print("Warn: chambolle_pock(): Lipschitz constant not provided, computing it with 20 iterations")
@@ -315,7 +334,10 @@ def chambolle_pock_tv_relaxed2(data, K, Kadj, Lambda, L=None, rho=1.9, tau = Non
     if tau is None: tau = 1.0/L
     sigma = 1.0/(tau*L*L)
 
-    x = 0*Kadj(data)
+    if x0 is not None:
+        x = x0
+    else:
+        x = 0*Kadj(data)
     p = 0*gradient(x)
     q = 0*data
     x_tilde = 0*x
@@ -367,9 +389,12 @@ def chambolle_pock_tv_relaxed2(data, K, Kadj, Lambda, L=None, rho=1.9, tau = Non
 #~ ISSN={1550-5499},
 #~ month={Nov},}
 
-def chambolle_pock_tv_precond(data, K, Kadj, Lambda, n_it=100, return_all=True):
+def chambolle_pock_tv_precond(data, K, Kadj, Lambda, n_it=100, return_all=True, x0=None):
 
-    x = 0*Kadj(data)
+    if x0 is not None:
+        x = x0
+    else:
+        x = 0*Kadj(data)
     p = 0*gradient(x)
     q = 0*data
     x_tilde = 0*x
@@ -404,6 +429,43 @@ def chambolle_pock_tv_precond(data, K, Kadj, Lambda, n_it=100, return_all=True):
     else: return x
 
 
+def chambolle_pock_tv_l1_precond(data, K, Kadj, Lambda, n_it=100, return_all=True, x0=None):
+
+    x = 0*Kadj(data) if x0 is None else x0
+    p = 0*gradient(x)
+    q = 0*data
+    x_tilde = 0*x
+    theta = 1.0
+
+    # Compute the diagonal preconditioner "Sigma" for alpha=1
+    # Assuming K is a positive integral operator
+    Sigma_k = 1./K(np.ones_like(x))
+    Sigma_grad = 1/2.0
+    Sigma = 1/(1./Sigma_k + 1./Sigma_grad)
+    # Compute the diagonal preconditioner "Tau" for alpha = 1
+    # Assuming Kadj is a positive operator
+    Tau = 1./(Kadj(np.ones_like(data)) + 2.)
+
+    if return_all: en = np.zeros(n_it)
+    for k in range(0, n_it):
+        # Update primal variables
+        x_old = x
+        x = x + Tau*div(p) - Tau*Kadj(q)
+        # Update dual variables
+        p = proj_linf(p + Sigma_grad*gradient(x + theta*(x - x_old)), Lambda) # For discrete gradient, sum|D_i,j| = 2 along lines or cols
+        #q = (q + Sigma_k*K(x + theta*(x - x_old)) - Sigma_k*data)/(1.0 + Sigma_k) # <=
+        q = proj_linf(q + Sigma_k*K(x + theta*(x - x_old)) - Sigma_k*data)
+        # Calculate norms
+        if return_all:
+            fidelity = norm1(K(x)-data)
+            tv = norm1(gradient(x))
+            energy = fidelity + Lambda*tv
+            en[k] = energy
+            if (k%10 == 0): # TODO: more flexible
+                print("[%d] : energy %e \t fidelity %e \t TV %e" %(k,energy,fidelity,tv))
+    if return_all: return en, x
+    else: return x
+
 
 
 
@@ -414,7 +476,7 @@ def chambolle_pock_tv_precond(data, K, Kadj, Lambda, n_it=100, return_all=True):
 # Wavelets + TV
 #
 
-def chambolle_pock_tv_wavelets(data, K, Kadj, W, Lambda1, Lambda2, L=None,  n_it=100, return_all=True):
+def chambolle_pock_tv_wavelets(data, K, Kadj, W, Lambda1, Lambda2, L=None, n_it=100, return_all=True, x0=None):
 
 
     if L is None:
@@ -426,7 +488,10 @@ def chambolle_pock_tv_wavelets(data, K, Kadj, W, Lambda1, Lambda2, L=None,  n_it
     sigma = 1.0/L
     tau = 1.0/L
 
-    x = 0*Kadj(data)
+    if x0 is not None:
+        x = x0
+    else:
+        x = 0*Kadj(data)
     p = 0*gradient(x)
     q = 0*data
     x_tilde = 0*x
@@ -472,7 +537,7 @@ def chambolle_pock_tv_wavelets(data, K, Kadj, W, Lambda1, Lambda2, L=None,  n_it
 
 
 
-def chambolle_pock_tv_l2(data, K, Kadj, U, Uadj, Lambda, Lambda2, L=None,  n_it=100, return_all=True):
+def chambolle_pock_tv_l2(data, K, Kadj, U, Uadj, Lambda, Lambda2, L=None,  n_it=100, return_all=True, x0=None):
 
     if L is None:
         print("Warn: chambolle_pock(): Lipschitz constant not provided, computing it with 20 iterations")
@@ -484,7 +549,10 @@ def chambolle_pock_tv_l2(data, K, Kadj, U, Uadj, Lambda, Lambda2, L=None,  n_it=
     sigma = 1.0/L
     tau = 1.0/L
 
-    x = 0*Kadj(data)
+    if x0 is not None:
+        x = x0
+    else:
+        x = 0*Kadj(data)
     p = 0*gradient(x)
     q = 0*data
     r = 0*x

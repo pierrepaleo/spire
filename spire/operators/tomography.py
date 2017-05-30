@@ -126,7 +126,7 @@ class AstraToolbox:
         self.angles = angles
         self.cudafbp = cudafbp
         if not(cudafbp):
-            _ramp = self.compute_ramp_filter(dwidth*2)*2.0
+            _ramp = self.compute_ramp_filter(dwidth*2)*2.0 # *2: compat. with PyHST2
             self.rampfilter = np.abs(np.fft.fft(_ramp))
         else: self.rampfilter = None
 

@@ -116,7 +116,8 @@ def svd(Op, Opadj, op_input_shape, op_output_shape, rank=None, niter=None, block
         Q2[:, b] = Op((Q[:, b].reshape(op_input_shape))).ravel()
 
     U, S, V2 = np.linalg.svd(Q2, full_matrices=0)
-    #~ V = Q.dot(V2) # <= This is an error in the Matlab implementation. The following line is correct.
+    #~ V = Q.dot(V2) # <= This is an error in the Matlab implementation (or, I did not understand the syntax).
+    # The following line is correct.
     V = V2.dot(Q.T)
 
     return U, S, V

@@ -34,7 +34,7 @@ from __future__ import division
 import numpy as np
 from spire.operators.image import grad_tv_smoothed, tv_smoothed, norm2sq, dot
 
-def conjugate_gradient_tv(K, Kadj, data, Lambda, n_it, mu=1e-4, return_all=True):
+def conjugate_gradient_tv(data, K, Kadj, Lambda, n_it, mu=1e-4, return_all=True, x0=None, recalculate_gradient=50):
     '''
     Conjugate Gradient algorithm to minimize the objective function
     1/2 ||K x - d||_2^2 + Lambda TV_mu (x)
@@ -48,9 +48,14 @@ def conjugate_gradient_tv(K, Kadj, data, Lambda, n_it, mu=1e-4, return_all=True)
     Lambda : parameter weighting the TV regularization
     mu : parameter of Moreau-Yosida approximation of TV (small positive value)
     n_it : number of iterations
+    x0: initial solution estimate
+    recalculate_gradient: the gradient is periodically re-computed to avoid error accumulation
     '''
 
-    x = 0*Kadj(data) # start from 0
+    if x0 is not None:
+        x = x0
+    else:
+        x = 0*Kadj(data) # start from 0
     grad_f = -Kadj(data)
     grad_F = grad_f + Lambda*grad_tv_smoothed(x, mu)
     d = -np.copy(grad_F)
@@ -65,7 +70,10 @@ def conjugate_gradient_tv(K, Kadj, data, Lambda, n_it, mu=1e-4, return_all=True)
         alpha = dot(d, -grad_F_old)/dot(d, ATAd)
         # Update variables
         x = x + alpha*d
-        grad_f = grad_f_old + alpha*ATAd # TODO: re-compute gradient every K iterations to avoid error accumulation
+        if (k % recalculate_gradient) == 0:
+            grad_f = Kadj(K(x)-data)
+        else:
+            grad_f = grad_f_old + alpha*ATAd
         grad_F = grad_f + Lambda*grad_tv_smoothed(x,mu)
         beta = dot(grad_F, grad_F - grad_F_old)/norm2sq(grad_F_old) # Polak-Ribiere
         if beta < 0:

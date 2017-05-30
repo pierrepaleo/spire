@@ -30,41 +30,22 @@
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #
 
-r'''
-Simplified implementation of https://github.com/dmpelt/pysirtfbp
+"""
+Simple Implementation of the "SIRT Filter" from [1].
 
-An iterative method with L2 regularization (SIRT) amounts to the minimization of
-
-.. math::
-
-    f(x) = \frac{1}{2} \left\| P x - d \right\|_2^2
-
-At each iteration of a gradient descent :
-
-.. math::
-
-    \begin{aligned}
-    x_{n+1} &= x_n - \alpha  \nabla f (x_n) \\
-            &= x_n - \alpha  (P^T (P x - d)) \\
-            &= (I - \alpha P^T P) x + \alpha P^T d
-    \end{aligned}
-
-This linear recurrence relation leads to :
-
-.. math::
-
-    x_n = A^n  x_0 + \alpha  \left[\sum_{k=0}^{n-1} A^k \right] P^T d
-
-where :math:`A = (I - \alpha P^T P)`.
-
-This looks like a "backproject-then-filter" method.
-The filter :math:`\sum_{k=0}^{n-1} A^k` only depends on the geometry of the dataset,
-so it can be pre-computed for different geometries.
-Once the filter pre-computed, SIRT is equivalent to a simple Filtered Backprojection.
-The filtering is done in the sinogram domain.
+[1] Pelt, D.M., & De Andrade, V. (2017).
+Improved tomographic reconstruction of large-scale real-world data by filter optimization. Advanced Structural and Chemical Imaging 2: 17.
+http://rdcu.be/niW6
 
 
-'''
+TODO:
+- Fix the reconstruction with convolution in Fourier domain (for now only reconst_dummy is working)
+- Use the "strip" projector model, preferably with supersampling, to minimize the shift invariance error of (P^T P)
+"""
+
+
+
+
 
 
 from __future__ import division
@@ -144,26 +125,35 @@ def _convolve(sino, thefilter):
     sino_f = np.fft.fft(sino, sz, axis=1) * thefilter
     return np.fft.ifft(sino_f , axis=1)[:, :npx].real
 
-
+def _convolve_dummy(sino, filt):
+    # Convolution in direct space
+    # Inefficient as both supports are large, used for debug
+    res = np.zeros_like(sino)
+    for i in range(sino.shape[0]):
+        res[i] = np.convolve(sino[i], filt[i], mode="same")
+    return res
 
 
 
 def _compute_filter_operator(n_x, n_y, P, PT, alph, n_it, lambda_tikhonov=0):
-        x = np.zeros((n_x, n_y), dtype=np.float32)
-        x[n_x//2, n_y//2] = 1
+        x = np.zeros((n_y, n_x), dtype=np.float32)
+        x[n_y//2, n_x//2] = 1
         xs = np.zeros_like(x)
         for i in range(n_it):
             xs += x
             x -= alph*PT(P(x))
-            if lambda_tikhonov != 0: x += alph*lambda_tikhonov*div(gradient(x))
+            # Laplacian reg.
+            #~ if lambda_tikhonov != 0: x += alph*lambda_tikhonov*div(gradient(x))
+            # Identity reg.
+            if lambda_tikhonov != 0: x -= alph*lambda_tikhonov*x
             if ((i+1) % 10 == 0): print("Iteration %d / %d" % (i+1, n_it))
         return xs
 
 
 
 
-class SirtFilter:
-    def __init__(self, tomo, n_it, savedir=None, lambda_tikhonov=0, hdf5=False):
+class SirtFilter(object):
+    def __init__(self, tomo, n_it, savedir=None, lambda_tikhonov=0, hdf5=False, super_sampling=4):
         '''
         Initialize the SIRT-Filter class.
 
@@ -182,9 +172,9 @@ class SirtFilter:
         self.tomo = tomo
         self.n_it = n_it
         self.hdf5 = hdf5
-        self.thefilter = self._compute_filter(savedir=savedir, lambda_tikhonov=lambda_tikhonov)
+        self.thefilter = self._compute_filter(savedir=savedir, super_sampling=super_sampling, lambda_tikhonov=lambda_tikhonov)
 
-    def _compute_filter(self, savedir=None, lambda_tikhonov=0):
+    def _compute_filter(self, savedir=None, super_sampling=4, lambda_tikhonov=0):
 
         n_x = self.tomo.n_x
         n_y = self.tomo.n_y
@@ -224,7 +214,7 @@ class SirtFilter:
             n_y += 1
 
         # Initialize ASTRA with this new geometry
-        AST2 = AstraToolbox((n_x, n_y), nAng, super_sampling=8, rot_center=tomo.rot_center) # rot center is not required in the computation of the filter
+        AST2 = AstraToolbox((n_x, n_y), nAng, super_sampling=super_sampling, rot_center=self.tomo.rot_center) # rot center is not required in the computation of the filter
         P = lambda x : AST2.proj(x) #*3.14159/2.0/nAng
         PT = lambda y : AST2.backproj(y, filt=False)
 
@@ -236,6 +226,13 @@ class SirtFilter:
 
         # Forward project
         filter_projected = alph*P(xs)
+        # Save the projected filter
+        self.filter_projected = filter_projected
+
+        #
+        # FIXME: the Fourier convolution is not working for now.
+        # As a workaround, just use reconst_dummy instead of reconst.
+        #
 
         # The convolution theorem states that the size of the FFT should be
         # at least 2*N-1  where N is the original size.
@@ -247,11 +244,15 @@ class SirtFilter:
         # Manual fftshift
         filter_projected_zpad = np.zeros((nAng, 2*nexpow), dtype=np.float32)
         # Half right (+1) goes to the left
-        filter_projected_zpad[:, 0:nDet//2 + 1*0] = filter_projected[:, nDet//2:nDet]
+        filter_projected_zpad[:, 0:nDet//2 + size_increment] = filter_projected[:, nDet//2:nDet]
         # Half left goes to the right
-        filter_projected_zpad[:, -nDet//2:] = filter_projected_zpad[:, 1:nDet//2 + 1][:, ::-1]
+        filter_projected_zpad[:, -nDet//2:] = filter_projected_zpad[:, 1:nDet//2 + (1+size_increment)][:, ::-1]
         # FFT
         f_fft = np.fft.fft(filter_projected_zpad, axis=1)
+
+        #~ plot(filter_projected_zpad[30])
+        #~ figure(); plot(np.abs(f_fft[30]))
+
 
         # Result should be real, since it will be multiplied and backprojected.
         # With the manual zero-padding, the filter is real and symmetric, so its Fourier
@@ -269,5 +270,8 @@ class SirtFilter:
         s = _convolve(sino, self.thefilter)
         return self.tomo.backproj(s, filt=False)
 
+    def reconst_dummy(self, sino):
+        s = _convolve_dummy(sino, self.filter_projected)
+        return self.tomo.backproj(s, filt=False)
 
 

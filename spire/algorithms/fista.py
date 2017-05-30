@@ -148,7 +148,7 @@ def fista_l1(data, K, Kadj, Lambda, Lip=None, n_it=100, return_all=True):
 
 
 
-def fista_wavelets(data, W, K, Kadj, Lambda, Lip=None, n_it=100, return_all=True, normalize=False, dta=False):
+def fista_wavelets(data, W, K, Kadj, Lambda, Lip=None, n_it=100, return_all=True, normalize=False, dta=False, x0=None):
     """
     Algorithm for solving the regularized inverse problem
     ||K x - data||_2^2  +  Lambda*||W x||_1
@@ -180,6 +180,8 @@ def fista_wavelets(data, W, K, Kadj, Lambda, Lip=None, n_it=100, return_all=True
         Mind that the threshold should be adapted (should be ~ twice bigger than for normalize=False).
     dta: bool, optional, default is False.
         Do Threshold Appcoefficients. If set to True, the approximation coefficients are thresholded.
+    x0: numpy.ndarray
+        initial solution estimate
     """
     dta = 1 if bool(dta) else 0
     normalize = 1 if bool(normalize) else 0
@@ -189,8 +191,12 @@ def fista_wavelets(data, W, K, Kadj, Lambda, Lip=None, n_it=100, return_all=True
         print("Lip = %e" % Lip)
 
     if return_all: en = np.zeros(n_it)
-    x = np.zeros_like(Kadj(data))
-    y = np.zeros_like(x)
+    if x0 is not None:
+        x = x0
+        y = np.copy(x)
+    else:
+        x = np.zeros_like(Kadj(data))
+        y = np.zeros_like(x)
     for k in range(0, n_it):
         grad_y = Kadj(K(y) - data)
         x_old = x
