@@ -193,7 +193,7 @@ def fista_wavelets(data, W, K, Kadj, Lambda, Lip=None, n_it=100, return_all=True
     if return_all: en = np.zeros(n_it)
     if x0 is not None:
         x = x0
-        y = np.copy(x)
+        y = x0
     else:
         x = np.zeros_like(Kadj(data))
         y = np.zeros_like(x)

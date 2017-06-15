@@ -37,7 +37,7 @@ from spire.operators.image import gradient, div, norm1, norm2sq, proj_l2, proj_l
 from math import sqrt
 
 
-def chambolle_pock_tv(data, K, Kadj, Lambda, L=None,  n_it=100, return_all=True, x0=None):
+def chambolle_pock_tv(data, K, Kadj, Lambda, L=None,  n_it=100, return_all=True, x0=None, pos_constraint=False):
     '''
     Chambolle-Pock algorithm for Total Variation regularization.
     The following objective function is minimized : ||K x - d||_2^2 + Lambda TV(x)
@@ -89,6 +89,8 @@ def chambolle_pock_tv(data, K, Kadj, Lambda, L=None,  n_it=100, return_all=True,
         # Update primal variables
         x_old = x
         x = x + tau*div(p) - tau*Kadj(q)
+        if pos_constraint:
+            x[x<0] = 0
         x_tilde = x + theta*(x - x_old)
         # Calculate norms
         if return_all:
@@ -389,7 +391,7 @@ def chambolle_pock_tv_relaxed2(data, K, Kadj, Lambda, L=None, rho=1.9, tau = Non
 #~ ISSN={1550-5499},
 #~ month={Nov},}
 
-def chambolle_pock_tv_precond(data, K, Kadj, Lambda, n_it=100, return_all=True, x0=None):
+def chambolle_pock_tv_precond(data, K, Kadj, Lambda, n_it=100, return_all=True, x0=None, pos_constraint=False):
 
     if x0 is not None:
         x = x0
@@ -397,7 +399,7 @@ def chambolle_pock_tv_precond(data, K, Kadj, Lambda, n_it=100, return_all=True, 
         x = 0*Kadj(data)
     p = 0*gradient(x)
     q = 0*data
-    x_tilde = 0*x
+    x_tilde = x
     theta = 1.0
 
     # Compute the diagonal preconditioner "Sigma" for alpha=1
@@ -414,6 +416,8 @@ def chambolle_pock_tv_precond(data, K, Kadj, Lambda, n_it=100, return_all=True, 
         # Update primal variables
         x_old = x
         x = x + Tau*div(p) - Tau*Kadj(q)
+        if pos_constraint:
+            x[x<0] = 0
         # Update dual variables
         p = proj_linf(p + Sigma_grad*gradient(x + theta*(x - x_old)), Lambda) # For discrete gradient, sum|D_i,j| = 2 along lines or cols
         q = (q + Sigma_k*K(x + theta*(x - x_old)) - Sigma_k*data)/(1.0 + Sigma_k) # <=
@@ -691,3 +695,133 @@ def chambolle_pock_laplace(data, K, Kadj, Lambda, L=None,  n_it=100, return_all=
                 print("[%d] : energy %e \t fidelity %e \t TV %e" %(k,energy,fidelity,tv))
     if return_all: return en, x
     else: return x
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# ******************************************************************************
+# C-P for L1-Wavelets. The two following work quite well, although converging
+# quite slowly (it is even worse for a "fully split" problem).
+# Fortunately, the preconditioned version works well (although still slow), and
+# the continuation method should work (as restarting from x0 works in this case)
+# ******************************************************************************
+
+
+
+
+
+
+
+
+def chambolle_pock_l1_wavelets(data, W, K, Kadj, Lambda, L=None,  n_it=100, return_all=True, x0=None, pos_constraint=False):
+
+    if L is None:
+        print("Warn: chambolle_pock(): Lipschitz constant not provided, computing it with 20 iterations")
+        L = power_method(K, Kadj, data, 20)
+        L = sqrt(8. + L**2) * 1.2
+        print("L = %e" % L)
+
+    sigma = 1.0/L
+    tau = 1.0/L
+
+    if x0 is not None:
+        x = x0
+    else:
+        x = 0*Kadj(data)
+    p = gradient(x)
+    q = 0*data
+    x_tilde = 1.0*x
+    theta = 1.0
+
+    if return_all: en = np.zeros(n_it)
+    for k in range(0, n_it):
+        # Update dual variables
+        # For isotropic TV, the prox is a projection onto the L2 unit ball.
+        # For anisotropic TV, this is a projection onto the L-infinity unit ball.
+        q = proj_linf(q + sigma*K(x_tilde) - sigma*data)
+        # Update primal variables
+        x_old = x
+        W.set_image(x - tau*Kadj(q))
+        W.forward()
+        W.soft_threshold(Lambda*tau, do_threshold_appcoeffs=1)
+        W.inverse()
+        x = W.image
+        x_tilde = x + theta*(x - x_old)
+        # Calculate norms
+        if return_all:
+            fidelity = 0.5*norm2sq(K(x)-data)
+            tv = norm1(gradient(x))
+            energy = 1.0*fidelity + Lambda*tv
+            en[k] = energy
+            if (k%10 == 0): # TODO: more flexible
+                print("[%d] : energy %e \t fidelity %e \t TV %e" %(k,energy,fidelity,tv))
+    if return_all: return en, x
+    else: return x
+
+
+
+
+
+
+
+
+def chambolle_pock_l1_wavelets_precond(data, W, K, Kadj, Lambda, n_it=100, return_all=True, x0=None, pos_constraint=False):
+
+    if x0 is not None:
+        x = x0
+    else:
+        x = 0*Kadj(data)
+    p = 0*gradient(x)
+    q = 0*data
+    x_tilde = x
+    theta = 1.0
+
+    # Compute the diagonal preconditioner "Sigma" for alpha=1
+    # Assuming K is a positive integral operator
+    Sigma_k = 1./K(np.ones_like(x))
+    Sigma_grad = 1/2.0
+    Sigma = 1/(1./Sigma_k + 1./Sigma_grad)
+    # Compute the diagonal preconditioner "Tau" for alpha = 1
+    # Assuming Kadj is a positive operator
+    Tau = 1./(Kadj(np.ones_like(data)) + 2.)
+
+    if return_all: en = np.zeros(n_it)
+    for k in range(0, n_it):
+        # Update primal variables
+        x_old = x
+        W.set_image(x - Tau*Kadj(q))
+        W.forward()
+        W.soft_threshold(Lambda, do_threshold_appcoeffs=1)
+        W.inverse()
+        x = W.image
+        # Update dual variables
+        q = proj_linf(q + Sigma_k*K(x + theta*(x - x_old)) - Sigma_k*data) # <=
+        # Calculate norms
+        if return_all:
+            fidelity = 0.5*norm2sq(K(x)-data)
+            tv = norm1(gradient(x))
+            energy = 1.0*fidelity + Lambda*tv
+            en[k] = energy
+            if (k%10 == 0): # TODO: more flexible
+                print("[%d] : energy %e \t fidelity %e \t TV %e" %(k,energy,fidelity,tv))
+    if return_all: return en, x
+    else: return x
+
+
+
+
+
+
+
+
+

@@ -164,6 +164,7 @@ class AstraToolbox:
 
     def backproj(self, s, filt=False, ext=False, method=1):
 
+        old_filter = None
         if ext:
             s = self.extend_projections(s, method)
 
@@ -171,8 +172,9 @@ class AstraToolbox:
             if filt is True:
                 convmode = "linear" if not(ext) else "circular"
                 s = self.filter_projections(s, convmode=convmode)
-        elif filt == False: # TODO: create a new backprojector
-            print("Warning: in this tomo setting, cudafbp=True. This means that the data *will* be filtered !")
+        elif not(filt) and cudafbp:
+            old_filter = self.cfg_backproj['FilterType']
+            self.cfg_backproj['FilterType'] = "none"
 
         sino = self.__checkArray(s)
         # In
@@ -187,6 +189,8 @@ class AstraToolbox:
         astra.algorithm.run(bp_id)
         astra.algorithm.delete(bp_id)
         astra.data2d.delete([sid, vid])
+        if old_filter is not None:
+            self.cfg_backproj['FilterType'] = old_filter
         return v
 
 
@@ -294,6 +298,21 @@ class AstraToolbox:
             return self.backproj(sino, filt=True)
         else:
             return self.backproj(sino, filt=True, ext=True, method=padding)
+
+
+    def set_filter(self, filter_name):
+        """
+        Sets the filter for FBP.
+        Available ASTRA filters are
+        none, ram-lak, shepp-logan, cosine, hamming, hann, tukey, lanczos,
+        triangular, gaussian, barlett-hann, blackman, nuttall, blackman-harris,
+        blackman-nuttall, flat-top, parzen.
+        The kaiser filter seems to be unknown in spite of being documented.
+        """
+        if self.cudafbp:
+            self.cfg_backproj['FilterType'] = filter_name
+        else:
+            raise ValueError("the AstraToolbox object was not instantiated with cudafbp=True. This means that the filtering is done in the Python level")
 
 
     def cleanup(self):
