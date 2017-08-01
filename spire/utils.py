@@ -246,6 +246,35 @@ def fftbs(x):
 
 
 
+# not so elegant, but achieves 523 ms vs 3.23 s for (631, 1451)
+def fftbs2(img, copy=True, one_axis=False):
+    N = img.shape[1]
+    n = np.arange(N)
+    chirp = np.exp((1j*pi*n**2)/N)
+    a = img * chirp.conjugate()
+    M = ceilpow2(N) * 2
+    chirp2 = np.concatenate((chirp, [0] * (M - 2*N + 1), chirp[:0:-1]))
+    a_f = np.fft.fft(a, M, axis=1)
+    chirp2_f = np.fft.fft(chirp2)
+    C = np.fft.ifft(a_f * chirp2_f, axis=1)
+    c = C[:, :N]
+    res = chirp.conjugate() * c
+    res = res.T
+    if copy:
+        res = np.ascontiguousarray(res)
+    if one_axis: return res
+    return fftbs2(res, one_axis=True)
+
+
+
+
+
+
+
+
+
+
+
 ################################################################################
 # Phantoms utils. by Alex Opie  <lx_op@orcon.net.nz>
 ################################################################################

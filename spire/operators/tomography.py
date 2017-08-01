@@ -264,7 +264,10 @@ class AstraToolbox:
 
 
     def run_algorithm(self, alg, n_it, data, extra_args=None):
-        rec_id = astra.data2d.create('-vol', self.vol_geom)
+        if alg == "EM_CUDA":
+            rec_id = astra.data2d.create('-vol', self.vol_geom, data=np.ones((self.n_x, self.n_y)))
+        else:
+            rec_id = astra.data2d.create('-vol', self.vol_geom)
         sino_id = astra.data2d.create('-sino', self.proj_geom, data)
         cfg = astra.astra_dict(alg)
         cfg['ReconstructionDataId'] = rec_id
