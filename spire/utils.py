@@ -46,7 +46,7 @@ from math import ceil
 # For ImageJ :
 import subprocess
 import os
-from io import tiff_save
+from spire.io import tiff_save
 
 
 # ------------------------------------------------------------------------------
