@@ -105,7 +105,7 @@ def chambolle_pock_tv(data, K, Kadj, Lambda, L=None,  n_it=100, return_all=True,
 
 
 
-def chambolle_pock_l1_tv(data, K, Kadj, Lambda, L=None,  n_it=100, return_all=True, x0=None):
+def chambolle_pock_l1_tv(data, K, Kadj, Lambda, L=None,  n_it=100, return_all=True, x0=None, pos_constraint=False):
     '''
     Chambolle-Pock algorithm for L1-TV.
     The following objective function is minimized : ||K x - d||_1 + Lambda TV(x).
@@ -148,6 +148,8 @@ def chambolle_pock_l1_tv(data, K, Kadj, Lambda, L=None,  n_it=100, return_all=Tr
         # Update primal variables
         x_old = x
         x = x + tau*div(p) - tau*Kadj(q)
+        if pos_constraint:
+            x[x<0] = 0
         x_tilde = x + theta*(x - x_old)
         # Calculate norms
         if return_all:
@@ -165,7 +167,7 @@ def chambolle_pock_l1_tv(data, K, Kadj, Lambda, L=None,  n_it=100, return_all=Tr
 
 
 
-def chambolle_pock_kl_tv(data, K, Kadj, Lambda, L=None,  n_it=100, return_all=True, x0=None):
+def chambolle_pock_kl_tv(data, K, Kadj, Lambda, L=None,  n_it=100, return_all=True, x0=None, pos_constraint=False):
     '''
     Chambolle-Pock algorithm for KL-TV.
     The following objective function is minimized : KL(K x , d) + Lambda TV(x)
@@ -213,6 +215,8 @@ def chambolle_pock_kl_tv(data, K, Kadj, Lambda, L=None,  n_it=100, return_all=Tr
         # Update primal variables
         x_old = x
         x = x + tau*div(p) - tau*Kadj(q)
+        if pos_constraint:
+            x[x<0] = 0
         x_tilde = x + theta*(x - x_old)
         # Calculate norms
         if return_all:
@@ -480,7 +484,7 @@ def chambolle_pock_tv_l1_precond(data, K, Kadj, Lambda, n_it=100, return_all=Tru
 # Wavelets + TV
 #
 
-def chambolle_pock_tv_wavelets(data, K, Kadj, W, Lambda1, Lambda2, L=None, n_it=100, return_all=True, x0=None):
+def chambolle_pock_tv_wavelets(data, K, Kadj, W, Lambda1, Lambda2, L=None, n_it=100, return_all=True, x0=None, pos_constraint=False):
 
 
     if L is None:
@@ -517,6 +521,10 @@ def chambolle_pock_tv_wavelets(data, K, Kadj, W, Lambda1, Lambda2, L=None, n_it=
         W.inverse()
         x = W.image
         #
+
+        if pos_constraint:
+            x[x < 0] = 0
+
         x_tilde = x + theta*(x - x_old)
         # Calculate norms
         if return_all:

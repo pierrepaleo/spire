@@ -36,6 +36,7 @@ from math import sqrt, pi
 import astra
 from spire.utils import ceilpow2 as nextpow2
 
+astra_version = float(".".join(astra.__version__.split(".")[:2]))
 
 class AstraToolbox:
     """
@@ -86,15 +87,26 @@ class AstraToolbox:
         self.vol_geom = astra.create_vol_geom(n_x, n_y)
         self.proj_geom = astra.create_proj_geom('parallel', 1.0, dwidth, angles)
 
-        if rot_center:
-            o_angles = np.ones(n_angles) if isinstance(n_angles, int) else np.ones_like(n_angles)
-            self.proj_geom['option'] = {'ExtraDetectorOffset': (rot_center - n_x / 2.) * o_angles}
+        # Customize rotation center
+        if rot_center is not None:
+            cor_shift = rot_center - n_x / 2.
+            if astra_version < 1.9:
+                o_angles = np.ones(n_angles) if isinstance(n_angles, int) else np.ones_like(n_angles)
+                self.proj_geom['option'] = {'ExtraDetectorOffset': cor_shift * o_angles}
+            else:
+                proj_geom_cor = astra.geom_postalignment(self.proj_geom, -cor_shift)
+                self.proj_geom = proj_geom_cor
+
         self.proj_id = astra.create_projector('cuda', self.proj_geom, self.vol_geom)
 
+        # It seems that astra.projector.projection_geometry() return a geometry
+        # with angles values slightly different that "proj_geom". This might
+        # be due to different types used in the underlying C++/CUDA library.
+
         # vg : Volume geometry
-        self.vg = astra.projector.volume_geometry(self.proj_id)
+        self.vg = self.vol_geom #astra.projector.volume_geometry(self.proj_id)
         # pg : projection geometry
-        self.pg = astra.projector.projection_geometry(self.proj_id)
+        self.pg = self.proj_geom # astra.projector.projection_geometry(self.proj_id)
 
         # ---- Configure Projector ------
         # sinogram shape
