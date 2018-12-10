@@ -107,6 +107,31 @@ def div_axis(x, axis=-1):
     return t1 + t2
 
 
+# TODO extend for n dimensions
+def LLT(img):
+    """
+    Return the (2D) Lysaker-Lundervold-Tai operator.
+    """
+    g1, g2 = gradient(img)
+    l1 = gradient(g1)[0]
+    l2 = gradient(g2)[-1]
+    return np.array([l1, l2])
+
+
+# TODO extend to images
+def LLTadj(grd):
+    """
+    Return the adjoint of (2D) Lysaker-Lundervold-Tai operator.
+    """
+    grd2 = np.zeros_like(grd)
+    grd2[0][:] = grd[0][:]
+    comp1 = -div(grd2)
+    grd2[0] *= 0
+    grd2[1][:] = grd[1][:]
+    comp2 = -div(grd2)
+    grd3 = np.array([comp1, comp2])
+    return -div(grd3)
+
 
 
 

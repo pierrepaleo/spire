@@ -437,7 +437,7 @@ def chambolle_pock_tv_precond(data, K, Kadj, Lambda, n_it=100, return_all=True, 
     else: return x
 
 
-def chambolle_pock_tv_l1_precond(data, K, Kadj, Lambda, n_it=100, return_all=True, x0=None):
+def chambolle_pock_tv_l1_precond(data, K, Kadj, Lambda, n_it=100, return_all=True, x0=None, pos_constraint=False):
 
     x = 0*Kadj(data) if x0 is None else x0
     p = 0*gradient(x)
@@ -459,6 +459,8 @@ def chambolle_pock_tv_l1_precond(data, K, Kadj, Lambda, n_it=100, return_all=Tru
         # Update primal variables
         x_old = x
         x = x + Tau*div(p) - Tau*Kadj(q)
+        if pos_constraint:
+            x[x<0] = 0
         # Update dual variables
         p = proj_linf(p + Sigma_grad*gradient(x + theta*(x - x_old)), Lambda) # For discrete gradient, sum|D_i,j| = 2 along lines or cols
         #q = (q + Sigma_k*K(x + theta*(x - x_old)) - Sigma_k*data)/(1.0 + Sigma_k) # <=
@@ -475,6 +477,69 @@ def chambolle_pock_tv_l1_precond(data, K, Kadj, Lambda, n_it=100, return_all=Tru
     else: return x
 
 
+
+
+def chambolle_pock_kl_tv_precond(data, K, Kadj, Lambda, L=None,  n_it=100, return_all=True, x0=None, pos_constraint=False):
+    '''
+    Preconditioned Chambolle-Pock algorithm for KL-TV.
+    The following objective function is minimized : KL(K x , d) + Lambda TV(x)
+    Where KL(x, y) is a modified Kullback-Leibler divergence.
+    This method might be more effective than L2-TV for Poisson noise.
+
+    K : forward operator
+    Kadj : backward operator
+    Lambda : weight of the TV penalization (the higher Lambda, the more sparse is the solution)
+    L : norm of the operator [P, Lambda*grad] (see power_method)
+    n_it : number of iterations
+    return_all: if True, an array containing the values of the objective function will be returned
+    x0: initial solution estimate
+    '''
+
+    if x0 is not None:
+        x = x0
+    else:
+        x = 0*Kadj(data)
+    p = 0*gradient(x)
+    q = 0*data
+    x_tilde = 0*x
+    theta = 1.0
+    # Compute the diagonal preconditioner "Sigma" for alpha=1
+    # Assuming K is a positive integral operator
+    Sigma_k = 1./K(np.ones_like(x))
+    Sigma_grad = 1/2.0
+    Sigma = 1/(1./Sigma_k + 1./Sigma_grad)
+    # Compute the diagonal preconditioner "Tau" for alpha = 1
+    # Assuming Kadj is a positive operator
+    Tau = 1./(Kadj(np.ones_like(data)) + 2.)
+
+    #
+    O = np.ones_like(q)
+    #
+
+    if return_all: en = np.zeros(n_it)
+    for k in range(0, n_it):
+        # Update dual variables
+        tmp = q + Sigma_k*K(x_tilde)
+        q = 0.5*(O + tmp - np.sqrt((tmp - O)**2 + 4*Sigma_k*data))
+        tmp = p + Sigma_grad*gradient(x_tilde)
+        p = Lambda*(tmp)/np.maximum(Lambda, np.abs(tmp))
+
+        # Update primal variables
+        x_old = x
+        x = x + Tau*div(p) - Tau*Kadj(q)
+        if pos_constraint:
+            x[x<0] = 0
+        x_tilde = x + theta*(x - x_old)
+        # Calculate norms
+        if return_all:
+            fidelity = 0.5*norm2sq(K(x)-data)
+            tv = norm1(gradient(x))
+            energy = 1.0*fidelity + Lambda*tv
+            en[k] = energy
+            if (k%10 == 0): # TODO: more flexible
+                print("[%d] : energy %e \t fidelity %e \t TV %e" %(k,energy,fidelity,tv))
+    if return_all: return en, x
+    else: return x
 
 
 
@@ -508,7 +573,8 @@ def chambolle_pock_tv_wavelets(data, K, Kadj, W, Lambda1, Lambda2, L=None, n_it=
     if return_all: en = np.zeros(n_it)
     for k in range(0, n_it):
         # Update dual variables
-        p = proj_linf(p + sigma*gradient(x_tilde), Lambda1)
+        #~ p = proj_linf(p + sigma*gradient(x_tilde), Lambda1)
+        p = proj_l2(p + sigma*gradient(x_tilde), Lambda1)
         q = (q + sigma*K(x_tilde) - sigma*data)/(1.0 + sigma)
         # Update primal variables
         x_old = x

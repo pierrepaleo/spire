@@ -101,7 +101,7 @@ def conjugate_gradient_tv(data, K, Kadj, Lambda, n_it, mu=1e-4, return_all=True,
 
 
 
-def conjugate_gradient(K, Kadj, data, n_it, return_all=True):
+def conjugate_gradient(K, Kadj, data, n_it, print_period=10, return_all=True):
     '''
     Conjugate Gradient algorithm for least squares fitting :
     0.5 ||K x - d||_2^2
@@ -136,7 +136,7 @@ def conjugate_gradient(K, Kadj, data, n_it, return_all=True):
         if return_all:
             eng = norm2sq(K(x)-data)
             en[k] = eng
-            if (k % 10 == 0): # TODO: more flexible
+            if (k % print_period == 0):
                 print("%d : Energy = %e" %(k, eng))
 
         # Stoping criterion

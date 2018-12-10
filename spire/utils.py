@@ -31,6 +31,7 @@
 #
 
 from __future__ import division
+import os
 import numpy as np
 import random
 import string
@@ -167,7 +168,7 @@ def call_imagej(obj):
 
 
 def _randomword(length):
-   return ''.join(random.choice(string.lowercase) for i in range(length))
+   return ''.join(random.choice(str.lower(i)) for i in range(length))
 
 
 
