@@ -117,19 +117,19 @@ def apply_processing(myprocessing, dataset, options, extra_args=None):
 
     # Turns into a case insensitive search
     options = dict((k.lower(), options[k]) for k in options)
-    if options.has_key('verbose'):
+    if 'verbose' in options:
         _verbose = True if bool(options['verbose']) else False
-    if options.has_key('file_start'): tmp_str1 = get_tomo_file_num(options['file_start'])
+    if 'file_start' in options: tmp_str1 = get_tomo_file_num(options['file_start'])
     else: tmp_str1 = '0'
-    if options.has_key('file_end'): tmp_str2 = get_tomo_file_num(options['file_end'])
+    if 'file_end' in options: tmp_str2 = get_tomo_file_num(options['file_end'])
     else: tmp_str2 = str(_end)
     try:
         _start = int(tmp_str1)
         _end = int(tmp_str2)
     except ValueError:
         raise ValueError('apply_processing(): options file_start and file_end should be in format "path_0123.edf"') # TODO
-    if options.has_key('start'): _start = int(options['start'])
-    if options.has_key('end'): _end = int(options['end'])
+    if 'start' in options: _start = int(options['start'])
+    if 'end' in options: _end = int(options['end'])
     if (_start > _end): raise ValueError('apply_processing(): option start or file_start (%d) is greater than end or file_end (%d)' % (_start, _end))
     if (_end > _number): raise ValueError('apply_processing(): option end or file_end (%d) is greater than available files (%d)' % (_end, _number))
     try:
