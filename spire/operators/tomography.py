@@ -184,7 +184,7 @@ class AstraToolbox:
             if filt is True:
                 convmode = "linear" if not(ext) else "circular"
                 s = self.filter_projections(s, convmode=convmode)
-        elif not(filt) and cudafbp:
+        elif not(filt) and self.cudafbp:
             old_filter = self.cfg_backproj['FilterType']
             self.cfg_backproj['FilterType'] = "none"
 
